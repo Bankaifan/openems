@@ -2,8 +2,8 @@ import { CommonModule } from "@angular/common";
 import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, ViewChild } from "@angular/core";
 import { IonicModule } from "@ionic/angular";
 import { Chart, registerables } from "chart.js";
-import { ComponentJsonApiRequest } from "src/app/shared/jsonrpc/request/componentJsonApiRequest";
 import { JsonrpcRequest } from "src/app/shared/jsonrpc/base";
+import { ComponentJsonApiRequest } from "src/app/shared/jsonrpc/request/componentJsonApiRequest";
 import { Edge, Websocket } from "src/app/shared/shared";
 
 Chart.register(...registerables);
