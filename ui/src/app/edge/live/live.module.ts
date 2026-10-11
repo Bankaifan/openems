@@ -1,4 +1,5 @@
 import { NgModule } from "@angular/core";
+import { TariffPriceChartComponent } from "./common/tariff-price-chart/tariff-price-chart";
 import { BrowserModule } from "@angular/platform-browser";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { EdgeOfflineModule } from "src/app/shared/components/edge/offline/offline.module";
@@ -56,6 +57,7 @@ import { SystemOutageInfoComponent } from "./system-outage-info/oe-system-outage
 @NgModule({
     imports: [
         BrowserAnimationsModule,
+        TariffPriceChartComponent,
         BrowserModule,
         CommonAutarchy,
         CommonConsumption,
