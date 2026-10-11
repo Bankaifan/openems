@@ -4,7 +4,7 @@
       <!-- SoH Status Banner Component -->
       <soh-status-banner></soh-status-banner>
 
-      <ion-grid *ngIf="edge.isOnline" class="ion-no-padding">
+      <ion-grid *ngIf="edge.isOnline" class="ion-no-padding">\n        <ion-row *ngIf="tariffProviders.length > 0">\n          <ion-col size="12" size-lg="6" *ngFor="let provider of tariffProviders">\n            <oe-tariff-price-chart [componentId]="provider.id" [alias]="provider.alias" [edge]="edge"></oe-tariff-price-chart>\n          </ion-col>\n        </ion-row>
         @if (navigationService.position() !== null && navigationService.position() !== "disabled") {
           <ion-row class="ion-padding-top-half">
             <ion-col size-xl="2" size-lg="1">
