@@ -31,6 +31,7 @@ export class LiveComponent implements OnDestroy {
     protected config: EdgeConfig | null = null;
     protected widgets: Widgets | null = null;
     protected showRefreshDragDown: boolean = false;
+    protected tariffProviders: EdgeConfig.Component[] = [];
     protected showNewFooter: boolean = false;
     protected isTablet: boolean = false;
 
@@ -59,6 +60,8 @@ export class LiveComponent implements OnDestroy {
 
             edge?.getFirstValidConfig(websocket)?.then(async (config) => {
                 this.config = config;
+                this.tariffProviders = Object.values(config.components)
+                    .filter((component) => component.factoryId?.startsWith("TimeOfUseTariff."));
                 this.widgets = await navigationService.getWidgets(config.widgets, userService.currentUser(), edge);
             });
             this.checkIfRefreshNeeded();
