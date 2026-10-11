@@ -1,5 +1,4 @@
 import { NgModule } from "@angular/core";
-import { TariffPriceChartComponent } from "./common/tariff-price-chart/tariff-price-chart";
 import { BrowserModule } from "@angular/platform-browser";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { EdgeOfflineModule } from "src/app/shared/components/edge/offline/offline.module";
@@ -15,6 +14,7 @@ import { CommonSelfconsumption } from "./common/selfconsumption/common-selfconsu
 import { SohStatusBannerComponent } from "./common/soh/components/soh-status-banner/soh-status-banner";
 import { StorageLiveModule } from "./common/storage/storage.module";
 import { WeatherModule } from "./common/weather/weather.module";
+import { TariffPriceChartComponent } from "./common/tariff-price-chart/tariff-price-chart";
 import { Controller_ChannelthresholdComponent } from "./Controller/Channelthreshold/Channelthreshold";
 import { ControllerChpFlatComponent } from "./Controller/ChpSoc/flat/ChpSoc";
 import { Controller_ChpSocModalComponent } from "./Controller/ChpSoc/modal/modal.component";
