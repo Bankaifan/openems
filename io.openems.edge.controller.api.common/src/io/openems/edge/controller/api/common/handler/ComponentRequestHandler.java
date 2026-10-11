@@ -22,6 +22,7 @@ import io.openems.edge.common.jsonapi.JsonApiBuilder;
 import io.openems.edge.common.jsonapi.JsonApiEndpoint;
 import io.openems.edge.common.jsonapi.Subrequest;
 import io.openems.edge.common.jsonapi.Tag;
+import io.openems.edge.timeofusetariff.api.TimeOfUseTariff;
 
 /**
  * This class handles {@link ComponentJsonApiRequest} and delegates the request
@@ -60,6 +61,10 @@ public class ComponentRequestHandler implements JsonApi {
 			cardinality = ReferenceCardinality.MULTIPLE //
 	)
 	public void bindJsonApi(ComponentJsonApi jsonApi, Map<String, ?> ref) {
+		final var existing = this.jsonApis.get(jsonApi.id());
+		if (existing != null && existing.serviceId() == (Long) ref.get(Constants.SERVICE_ID)) {
+			return;
+		}
 		final var builder = new JsonApiBuilder();
 
 		final var boundComponent = new BoundComponentJsonApi(//
@@ -110,8 +115,50 @@ public class ComponentRequestHandler implements JsonApi {
 	 * @param ref     the updated OSGi component properties
 	 */
 	public void unbindJsonApi(ComponentJsonApi jsonApi, Map<String, ?> ref) {
-		this.jsonApis.remove(jsonApi.id());
+		final var existing = this.jsonApis.get(jsonApi.id());
+		if (existing != null && existing.serviceId() == (Long) ref.get(Constants.SERVICE_ID)) {
+			this.jsonApis.remove(jsonApi.id());
+		}
 		this.log.info("Removed '" + jsonApi.id() + "' from Component Apis.");
+	}
+
+	/**
+	 * Bind tariff providers explicitly. OSGi Declarative Services may register a
+	 * component under its directly implemented TimeOfUseTariff interface without
+	 * advertising its inherited ComponentJsonApi interface.
+	 *
+	 * @param tariff the provider
+	 * @param ref    service properties
+	 */
+	@Reference(//
+			policy = ReferencePolicy.DYNAMIC, //
+			bind = "bindTariff", unbind = "unbindTariff", //
+			updated = "updateTariff", //
+			policyOption = ReferencePolicyOption.GREEDY, //
+			cardinality = ReferenceCardinality.MULTIPLE //
+	)
+	public void bindTariff(TimeOfUseTariff tariff, Map<String, ?> ref) {
+		this.bindJsonApi(tariff, ref);
+	}
+
+	/**
+	 * Updates a tariff provider reference.
+	 *
+	 * @param tariff the provider
+	 * @param ref    service properties
+	 */
+	public void updateTariff(TimeOfUseTariff tariff, Map<String, ?> ref) {
+		this.updateJsonApi(tariff, ref);
+	}
+
+	/**
+	 * Unbinds a tariff provider.
+	 *
+	 * @param tariff the provider
+	 * @param ref    service properties
+	 */
+	public void unbindTariff(TimeOfUseTariff tariff, Map<String, ?> ref) {
+		this.unbindJsonApi(tariff, ref);
 	}
 
 	@Override

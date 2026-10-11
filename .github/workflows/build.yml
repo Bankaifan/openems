@@ -28,6 +28,19 @@ jobs:
       - name: Build all Java packages
         run: ./gradlew build --console=colored --warn
 
+      - name: Package Edge bundles for Raspberry test
+        run: |
+          mkdir -p dist/edge-bundles
+          find . -path '*/generated/*.jar' -type f -exec cp --parents {} dist/edge-bundles/ \;
+          tar -czf openems-edge-bundles.tar.gz -C dist/edge-bundles .
+
+      - name: Upload Edge build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openems-edge-bundles-pr2
+          path: openems-edge-bundles.tar.gz
+          retention-days: 7
+
       - name: Resolve OpenEMS bundles
         run: ./gradlew resolve --console=colored --warn
 
@@ -74,6 +87,13 @@ jobs:
           node_modules/.bin/ng build -c "openems,openems-edge-prod,prod"
           export CHROME_BIN=/usr/bin/google-chrome-stable
           npm run test -- --code-coverage --no-watch --no-progress --browsers=ChromeHeadlessCI
+
+      - name: Upload UI build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openems-ui-pr2
+          path: ui/target/
+          retention-days: 7
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1

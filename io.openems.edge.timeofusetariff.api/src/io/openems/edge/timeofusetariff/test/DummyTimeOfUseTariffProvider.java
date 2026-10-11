@@ -57,6 +57,11 @@ public class DummyTimeOfUseTariffProvider implements TimeOfUseTariff {
 	}
 
 	@Override
+	public String id() {
+		return "dummyTimeOfUseTariff0";
+	}
+
+	@Override
 	public TimeOfUsePrices getPrices() {
 		return TimeOfUsePrices.from(Instant.now(this.clock), this.prices);
 	}
