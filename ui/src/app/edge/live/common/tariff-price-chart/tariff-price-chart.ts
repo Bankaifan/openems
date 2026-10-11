@@ -42,6 +42,7 @@ export class TariffPriceChartComponent implements AfterViewInit, OnChanges, OnDe
     @Input({ required: true }) public componentId!: string;
     @Input({ required: true }) public edge!: Edge;
     @Input() public alias: string = "";
+    @Input() public currency: string = "";
 
     @ViewChild("chartCanvas") private chartCanvas!: ElementRef<HTMLCanvasElement>;
 
@@ -103,14 +104,16 @@ export class TariffPriceChartComponent implements AfterViewInit, OnChanges, OnDe
             const labels = prices.map((item) => new Date(item.timestamp).toLocaleString(undefined, {
                 weekday: "short", hour: "2-digit", minute: "2-digit",
             }));
-            const values = prices.map((item) => (item.price as number) / 10);
+            const isEuro = this.currency === "EUR";
+            const values = prices.map((item) => (item.price as number) / (isEuro ? 10 : 1));
+            const unit = isEuro ? "ct/kWh" : `${this.currency || "Currency"}/MWh`;
             this.chart?.destroy();
             this.chart = new Chart(this.chartCanvas.nativeElement, {
                 type: "line",
                 data: {
                     labels,
                     datasets: [{
-                        label: "Electricity price (ct/kWh)",
+                        label: `Electricity price (${unit})`,
                         data: values,
                         stepped: "before",
                         pointRadius: 0,
