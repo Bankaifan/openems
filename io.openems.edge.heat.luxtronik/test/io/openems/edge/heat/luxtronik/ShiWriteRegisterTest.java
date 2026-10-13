@@ -2,10 +2,28 @@ package io.openems.edge.heat.luxtronik;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.HashSet;
 
 import org.junit.jupiter.api.Test;
 
 public class ShiWriteRegisterTest {
+
+    @Test
+    public void testAllAddressesUniqueAndBoundsValid() {
+        var addresses = new HashSet<Integer>();
+        for (var register : ShiWriteRegister.values()) {
+            assertTrue(addresses.add(register.address()), "Duplicate register: " + register.address());
+            assertTrue(register.minimum() <= register.maximum());
+            assertEquals(register.minimum(), register.validate(register.minimum()));
+            assertEquals(register.maximum(), register.validate(register.maximum()));
+            assertThrows(IllegalArgumentException.class,
+                    () -> register.validate(register.minimum() - 1));
+            assertThrows(IllegalArgumentException.class,
+                    () -> register.validate(register.maximum() + 1));
+        }
+    }
 
     @Test
     public void testHeatingAndHotWaterRanges() {
