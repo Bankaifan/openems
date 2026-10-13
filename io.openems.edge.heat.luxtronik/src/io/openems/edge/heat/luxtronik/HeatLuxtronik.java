@@ -30,6 +30,7 @@ public interface HeatLuxtronik extends OpenemsComponent {
         HOT_WATER_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
         COOLING_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
         POOL_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
+        RBE_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
         HEATING_MC1_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
         COOLING_MC1_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
         HEATING_MC2_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
