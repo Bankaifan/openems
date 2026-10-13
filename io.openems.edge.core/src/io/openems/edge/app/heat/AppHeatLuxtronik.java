@@ -209,7 +209,7 @@ public class AppHeatLuxtronik
 
             return AppConfiguration.create() //
                     .addTask(Tasks.component(components)) //
-                    .addTask(Tasks.schedulerByCentralOrder( //
+                    .addTask(Tasks.schedulerByCentralOrder(//
                             new SchedulerComponent(controlId, "Controller.Heat.Luxtronik.SHI", this.getAppId()))) //
                     .build();
         };
