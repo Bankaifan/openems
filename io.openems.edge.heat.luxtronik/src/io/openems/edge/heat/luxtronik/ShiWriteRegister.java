@@ -54,8 +54,9 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
     EXTRA_HOT_WATER(10071, 0, 1);
 
     /**
-     * True for additional controls which may require Luxtronik firmware 3.92 or
-     * additional configuration of the connected heat-pump installation.
+     * True for optional controls requiring firmware-specific support.
+     *
+     * @return true for advanced controls
      */
     public boolean requiresExtendedSupport() {
         return switch (this) {
@@ -66,7 +67,9 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
         };
     }
 
-    /** Returns the required mode-register, or null for independent controls. */
+    /** Gets the prerequisite mode register.
+     *
+     * @return required mode register or null */
     public ShiWriteRegister requiredModeRegister() {
         return switch (this) {
         case HEATING_SETPOINT, HEATING_OFFSET, HEATING_LEVEL -> HEATING_MODE;
@@ -83,7 +86,9 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
         };
     }
 
-    /** Returns the required mode value, or -1 if no mode is required. */
+    /** Gets the required mode (or -2 for both power-limiting modes).
+     *
+     * @return expected mode value or -1 when not applicable */
     public int requiredModeValue() {
         return switch (this) {
         case HEATING_SETPOINT, HOT_WATER_SETPOINT, MIXER1_HEATING_SETPOINT, MIXER1_COOLING_SETPOINT,
@@ -99,7 +104,9 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
         };
     }
 
-    /** True if the register is specified as INT16 instead of UINT16. */
+    /** Checks the signedness of the SHI register.
+     *
+     * @return true for signed INT16 registers */
     public boolean isSigned() {
         return this.minimum < 0 || this == HEATING_OFFSET || this == HOT_WATER_OFFSET;
     }
@@ -125,22 +132,31 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
         return this.doc;
     }
 
-    /** Gets the zero-based Modbus holding register address. */
+    /** Gets the zero-based Modbus holding register address.
+     *
+     * @return register address */
     public int address() {
         return this.address;
     }
 
-    /** Gets the permitted minimum (raw units). */
+    /** Gets the permitted minimum (raw units).
+     *
+     * @return minimum value */
     public int minimum() {
         return this.minimum;
     }
 
-    /** Gets the permitted maximum (raw units). */
+    /** Gets the permitted maximum (raw units).
+     *
+     * @return maximum value */
     public int maximum() {
         return this.maximum;
     }
 
-    /** Validates the desired raw register value without silently clamping. */
+    /** Validates a raw register value without silently clamping.
+     *
+     * @param value requested value
+     * @return value if permitted */
     public int validate(int value) {
         if (this == OVERALL_HEATING_MODE && value == 1) {
             throw new IllegalArgumentException("Overall heating mode 1 is reserved");
@@ -152,7 +168,10 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
         return value;
     }
 
-    /** Encodes a validated signed or unsigned value as a Modbus word. */
+    /** Encodes a validated signed or unsigned value as a Modbus word.
+     *
+     * @param value requested value
+     * @return raw unsigned 16-bit word */
     public int toModbusWord(int value) {
         return this.validate(value) & 0xffff;
     }
