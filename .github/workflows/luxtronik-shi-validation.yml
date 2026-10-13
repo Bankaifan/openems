@@ -20,4 +20,15 @@ jobs:
       - name: Run Luxtronik tests
         run: ./gradlew :io.openems.edge.heat.luxtronik:test --stacktrace --console=plain
       - name: Validate style
-        run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain --info\n      - name: Print Checkstyle XML diagnostics\n        if: failure()\n        run: |\n          find io.openems.edge.heat.luxtronik/build/reports/checkstyle -type f -name "*.xml" -print -exec grep -n "<error" {} \\; || true\n      - name: Upload Checkstyle report\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: luxtronik-checkstyle-report\n          path: io.openems.edge.heat.luxtronik/build/reports/checkstyle/\n          if-no-files-found: warn
+        run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain --info
+      - name: Print Checkstyle XML diagnostics
+        if: failure()
+        run: |
+          find io.openems.edge.heat.luxtronik/build/reports/checkstyle -type f -name "*.xml" -print -exec grep -n "<error" {} \\; || true
+      - name: Upload Checkstyle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luxtronik-checkstyle-report
+          path: io.openems.edge.heat.luxtronik/build/reports/checkstyle/
+          if-no-files-found: warn
