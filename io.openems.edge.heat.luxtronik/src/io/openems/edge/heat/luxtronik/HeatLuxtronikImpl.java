@@ -230,10 +230,6 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 								.m(HeatLuxtronik.ChannelId.SYSTEM_ELECTRIC_W, MULTIPLY(100))
 								.m(HeatLuxtronik.ChannelId.COMPRESSOR_ELECTRIC_W, MULTIPLY(100)).build()));
 
-		if (this.readOnly) {
-			return protocol;
-		}
-
 		// The SHI capability flags are a prerequisite for safe active control.
 		protocol.addTask(new FC2ReadInputsTask(10000, Priority.LOW,
 				m(HeatLuxtronik.ChannelId.HEATING_ENABLED, new CoilElement(10000)),
@@ -273,12 +269,16 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 			}
 			if (register.isSigned()) {
 				block.add(m(register, new SignedWordElement(register.address())));
+				if (!this.readOnly) {
 				protocol.addTask(new FC6WriteRegisterTask(register.address(),
 						m(register, new SignedWordElement(register.address()))));
+				}
 			} else {
 				block.add(m(register, new UnsignedWordElement(register.address())));
+				if (!this.readOnly) {
 				protocol.addTask(new FC6WriteRegisterTask(register.address(),
 						m(register, new UnsignedWordElement(register.address()))));
+				}
 			}
 			lastAddress = register.address();
 		}
