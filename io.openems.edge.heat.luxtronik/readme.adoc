@@ -4,6 +4,34 @@ OpenEMS Edge driver for the Luxtronik Smart Home Interface (SHI) over Modbus TCP
 The driver supports read-only monitoring by default and *explicitly enabled*
 remote control using the documented SHI holding registers.
 
+== OpenEMS integration model
+
+This is a standard OpenEMS Edge device component, not an independent heat-pump
+scheduler or dashboard application. It registers the factory
+`Heat.Luxtronik.SHI` and implements the existing `Heat` and
+`ElectricityMeter` interfaces. As with other OpenEMS Modbus devices, the
+readable measurements and writable controls are exposed as component channels.
+
+The Luxtronik SHI supports mode-dependent setpoints, offsets, blocks and
+power *limits*. It does **not** expose a continuously adjustable requested
+heating-element power as supported by the OpenEMS `ManagedHeatElement`
+interface for my-PV/ASKOMA electric heaters. Therefore this driver must not
+claim to implement `ManagedHeatElement` or automatically accept an OpenEMS
+`TARGET_ACTIVE_POWER` signal: the semantics are different.
+
+Similarly, OpenEMS `Controller.Io.HeatPump.SgReady` controls physical
+SG-Ready relay outputs. It is not a generic Modbus-heat-pump controller and
+cannot be wired to SHI registers without a separately defined, correctly
+validated mapping. The manufacturer cautions against simultaneous SHI and
+SG-Ready control.
+
+The standard OpenEMS configuration/component browser can display these
+channels. The graphical Heat widgets and App Manager entries are
+factory-specific and do not appear solely because a new `Heat` component
+is installed. Further energy scheduling, if required, should use existing
+OpenEMS abstractions and explicit device-specific capability mapping,
+without reimplementing the wider energy-management platform.
+
 == Prerequisites
 
 * Enable SHI in the Luxtronik controller (Modbus TCP port 502, default unit 1).
