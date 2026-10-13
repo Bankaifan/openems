@@ -1,0 +1,23 @@
+name: Luxtronik SHI validation
+on:
+  push:
+    branches:
+      - feature/luxtronik-heat-pump-integration
+  workflow_dispatch:
+
+jobs:
+  validate-luxtronik:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile Luxtronik driver
+        run: ./gradlew :io.openems.edge.heat.luxtronik:compileJava --stacktrace --console=plain
+      - name: Run Luxtronik tests
+        run: ./gradlew :io.openems.edge.heat.luxtronik:test --stacktrace --console=plain
+      - name: Validate style
+        run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain
