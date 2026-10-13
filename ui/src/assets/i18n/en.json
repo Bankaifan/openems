@@ -607,6 +607,12 @@
                     "VEHICLE_ID_ERROR": "The vehicle ID could not be found. Please check the configuration. All registered vehicles are displayed.",
                     "KEBA_WARNING": "Hinweis: Bei der Nutzung dieses Modus kann es in Verbindung mit FEMS und der KEBA P40 zu einem Fehler kommen. Wir empfehlen daher, diesen Modus derzeit nicht zu verwenden und stattdessen vorübergehend den Modus „PV-Überschuss mit garantierter Beladung“ oder „Schnellladen“ zu nutzen. FENECON und KEBA arbeiten bereits mit Hochdruck an einer Lösung."
                 }
+            },
+            "TARIFF_FORECAST": {
+                "TITLE": "Electricity price forecast",
+                "PRICE": "Electricity price",
+                "EMPTY": "No future tariff prices available",
+                "UNAVAILABLE": "Price forecast temporarily unavailable"
             }
         },
         "NETWORK": {
