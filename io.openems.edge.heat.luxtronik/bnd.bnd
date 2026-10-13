@@ -15,6 +15,7 @@ Bundle-Version: 1.0.0.${tstamp}
 	${testpath},\
 	io.openems.edge.heat.api,\
 	io.openems.edge.bridge.modbus,\
+	io.openems.j2mod,\
 	io.openems.edge.meter.api,\
 	io.openems.edge.common,\
 	io.openems.common
