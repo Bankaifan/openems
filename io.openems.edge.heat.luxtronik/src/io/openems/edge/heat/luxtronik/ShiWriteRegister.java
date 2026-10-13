@@ -48,7 +48,7 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
     POOL_BLOCK(10053, 0, 1),
     ROOM_SETPOINT(10060, 150, 300),
     OVERALL_HEATING_MODE(10065, 0, 3),
-    OVERALL_HEATING_OFFSET(10066, -50, 50),
+    OVERALL_HEATING_OFFSET(10066, 0, 200),
     OVERALL_HEATING_LEVEL(10067, 0, 3),
     CIRCULATION_START(10070, 0, 1),
     EXTRA_HOT_WATER(10071, 0, 1);
