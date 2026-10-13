@@ -1,58 +1,102 @@
-= Luxtronik SHI Heat Pump Monitoring
+= Alpha Innotec / Novelan Luxtronik SHI
 
-Read-only Modbus input-register integration for Alpha Innotec / Luxtronik 3.9x heat pumps.
+OpenEMS Edge driver for the Luxtronik Smart Home Interface (SHI) over Modbus TCP.
+The driver supports read-only monitoring by default and *explicitly enabled*
+remote control using the documented SHI holding registers.
 
-== Scope
+== Prerequisites
 
-* Factory PID: `Heat.Luxtronik.SHI`
-* Modbus bridge: configured using `modbus_id`
-* Modbus Unit ID: configurable, default 1
-* Read-only: uses Modbus function code 04 (input registers); does not issue write commands
-* Exposes operating mode, flow/return and hot-water temperatures, error number and measured power
-
-== Safety and compatibility
-
-This component is **not a heat pump controller**. It cannot set temperatures, switch operating modes or otherwise command the heat pump. The register mapping is specific to the SHI interface tested with Luxtronik 3.9x; verify device and firmware compatibility before enabling.
+* Enable SHI in the Luxtronik controller (Modbus TCP port 502, default unit 1).
+* Do *not* operate the separate Smart Grid (SG Ready) logic alongside SHI
+  controls. The manufacturer warns that the two control mechanisms interfere.
+* Ensure your controller firmware is compatible with SHI (v3.90.1 or newer).
+  Some extended functions may require firmware 3.92 or installation-specific
+  options; verify them before enabling `enableExtendedRegisters`.
+* Restrict access to Modbus TCP to a trusted network (no public port forwarding).
+* Prefer a single write-control owner (OpenEMS vs. other smart-home software).
 
 == Configuration
 
-Create a Modbus TCP bridge and add `Heat.Luxtronik.SHI` with the matching `modbus_id`. Configure the unit ID according to the device. The electricity meter nature reports consumption and should not be confused with a grid meter.
+Component factory: `Heat.Luxtronik.SHI`.
 
-== Development status
+[cols="1,1,3"]
+|===
+|Property |Default |Effect
 
-The initial source was recovered from a previously built OSGi bundle. A reproducible build, register-mapping tests and code review are required before an upstream pull request. No credentials or site-specific connection details belong in the repository.
+|`modbus_id` |`modbusLuxtronik0` |Modbus TCP bridge of the SHI
+|`modbusUnitId` |`1` |Modbus TCP unit ID
+|`readOnly` |`true` |No Modbus FC6 write tasks are created. Switch to
+`false` only after confirming SHI activation and firmware compatibility
+|`enableExtendedRegisters` |`false` |Opt in to optional level, overall
+heating and circulation registers (only if supported by firmware and wiring)
+|===
 
-== Write control development gate
+All SHI holding-register channels use the `ShiWriteRegister` enum. The names
+in the OpenEMS UI use this enum's names, e.g.
+`heatLuxtronik0/HEATING_OFFSET` and `heatLuxtronik0/POWER_LIMIT_TENTHS_KW`.
 
-Active control is not yet implemented. The prototype previously contained speculative
-Modbus FC6 write mappings. They have been removed pending authoritative verification
-of the SHI holding-register table, access rights, supported firmware, engineering
-units and legal value ranges. Do not infer writable addresses from input-register
-addresses.
+== Supported control families
 
-Before enabling control, implement and test:
+* Heating: mode, return-temperature setpoint, temperature offset, level, block
+* DHW: mode, desired temperature, offset, level, block, extra DHW demand
+* Mixing circuits 1 through 3: individual heating and cooling setpoints,
+  modes and offsets, optional heating levels
+* Cooling and pool blocking, room target (when RBE is configured)
+* Heat pump electrical power limitation: no limit, soft PV limit, hard limit
+* Overall heating offset/level and circulation trigger where firmware supports
 
-* Documented write-register mappings for each supported device/firmware version
-* Strict input validation and explicit operating-mode enumerations
-* Opt-in configuration with writes disabled by default
-* Read-back verification, error reporting and safe handling of communication loss
-* Integration with existing OpenEMS heat pump / SG Ready controllers where appropriate
-* A test against a simulated Modbus server before any live device write
+Mode values for heating/DHW/mixing circuits: `0` no influence,
+`1` absolute setpoint, `2` offset and `3` increased/decreased level.
+Each setpoint or offset requires its corresponding mode to be set and
+*read back from SHI first*. Requests are rejected if the mode is not yet
+effective or the relevant SHI capability is unavailable.
 
-Never use the user's live heat pump as the first write-test target.
+The power limitation uses `POWER_LIMIT_MODE=0` (no limitation),
+`1` (soft PV-aware limitation), or `2` (hard/§14a limitation).
+`POWER_LIMIT_TENTHS_KW` is an integer in 0.1-kW steps, range 0..300.
+For example, 40 represents 4.0 kW. Set mode to 1 or 2 and wait for
+read-back before writing the power limit. The driver **does not** itself
+implement the grid operator's §14a request interpretation, legal compliance
+verification, or price optimization; it exposes the appropriate SHI channels
+for a higher-level OpenEMS controller to drive.
 
-== Authoritative SHI register specification
+Temperature setpoints and offsets use 0.1-degree increments, as documented
+by ait-deutschland. Negative offsets are transmitted as signed INT16.
+All outgoing values are range-checked and *rejected*, never silently clipped.
+DHW absolute setpoints are additionally constrained by the system's reported
+minimum/maximum temperatures.
 
-* https://files.ait-group.net/FILES/Alpha-InnoTec/Betriebsanleitungen/01%20Waermepumpen/05%20Regler/Zubehoer/83026900aDE_SHI.pdf[ait-deutschland Smart Home Interface Modbus TCP operating manual (German)]
-* https://api.library.loxone.com/downloader/file/2883/83026903aUK_SHI.pdf[ait-deutschland Smart Home Interface Modbus TCP operating manual (English)]
+== Read-only channels
 
-The `ShiWriteRegister` enum records documented zero-based holding-register
-addresses, engineering-unit scaling and admissible raw ranges for heating, DHW,
-mixing circuits, cooling, power limitation and block signals. Tests cover bounds,
-signed two's-complement conversion and duplicate addresses.
+Input registers provide current heating state, return/flow/outside
+temperatures, DHW temperature, error code, current heating capacity
+and electrical power. The standard OpenEMS `Heat` channels for current
+and target temperature and the `ElectricityMeter` active power channel
+are mapped. When writes are enabled, the driver reads back supported SHI
+holding-register values (Modbus FC3) and capability flags (FC2).
 
-**The enum is metadata only:** it is deliberately not wired to Modbus write
-tasks. Writing requires validating device capabilities, mode prerequisites,
-timeout behaviour and the interaction between SHI and Smart Grid. Do not
-enable Smart Grid simultaneously with SHI control. The existing driver
-continues to read only.
+== Safety and timeout
+
+* The default is monitor-only; no FC6 task exists until control is explicitly
+  enabled. Changing `readOnly` should recreate the component.
+* Invalid values, unavailable SHI options and mismatched control modes are
+  rejected before generating a write.
+* The manufacturer specifies an SHI watchdog: after approximately 15 minutes
+  without a master's requests, externally applied settings revert to defaults.
+  This is implemented in SHI, not in OpenEMS.
+* Do not depend on SHI power limitation as the sole implementation of legally
+  required §14a grid control without integration and verification of the
+  external signal and the actual heat-pump response.
+* Test in a Modbus simulator before enabling writes on a real heat pump.
+  Nothing in the driver modifies equipment merely because it is activated.
+
+== Sources
+
+* https://api.library.loxone.com/downloader/file/2883/83026903aUK_SHI.pdf[
+  ait-deutschland: Smart Home Interface Modbus TCP, manual 83026903aUK]
+* https://www.alpha-innotec.com/de/service-und-support/downloads[
+  Alpha Innotec operating manuals]
+
+The manufacturer register list is authoritative for addresses, raw data types,
+mode prerequisites and value boundaries. Installation and firmware capabilities
+must still be confirmed for the specific heat pump.
