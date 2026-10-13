@@ -97,7 +97,7 @@ public class AppHeatLuxtronik
     private final Host host;
 
     @Activate
-    public AppHeatLuxtronik( //
+    public AppHeatLuxtronik(//
             @Reference ComponentManager componentManager, //
             ComponentContext componentContext, //
             @Reference ConfigurationAdmin cm, //
@@ -119,7 +119,7 @@ public class AppHeatLuxtronik
             var readOnly = this.getBoolean(p, Property.READ_ONLY);
             var extended = this.getBoolean(p, Property.EXTENDED_REGISTERS);
 
-            var components = java.util.List.of( //
+            var components = java.util.List.of(//
                     new EdgeConfig.Component(heatId, alias, "Heat.Luxtronik.SHI", JsonUtils.buildJsonObject() //
                             .addProperty("readOnly", readOnly) //
                             .addProperty("enableExtendedRegisters", extended) //
