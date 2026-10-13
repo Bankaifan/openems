@@ -39,14 +39,15 @@ import io.openems.edge.core.appmanager.TranslationUtil;
 import io.openems.edge.core.appmanager.Type;
 import io.openems.edge.core.appmanager.Type.Parameter.BundleParameter;
 import io.openems.edge.core.appmanager.dependency.Tasks;
+import io.openems.edge.core.appmanager.dependency.aggregatetask.SchedulerByCentralOrderConfiguration.SchedulerComponent;
 import io.openems.edge.core.appmanager.formly.JsonFormlyUtil;
 
 /**
  * Standard App Manager integration for Luxtronik SHI heat pumps.
  *
  * <p>
- * Creates the existing Modbus bridge and Luxtronik device component. Does not
- * install an SG-Ready relay controller or implement a separate energy scheduler.
+ * Creates a Modbus bridge, the Luxtronik device and a standard OpenEMS
+ * heating controller. The controller defaults to monitor-only and dry-run.
  */
 @Component(name = "App.Heat.Luxtronik")
 public class AppHeatLuxtronik
@@ -56,6 +57,7 @@ public class AppHeatLuxtronik
     public enum Property implements Type<Property, AppHeatLuxtronik, BundleParameter>, Nameable {
         HEAT_ID(AppDef.componentId("heatLuxtronik0")),
         MODBUS_ID(AppDef.componentId("modbusLuxtronik0")),
+        CONTROL_ID(AppDef.componentId("ctrlHeatLuxtronik0")),
         ALIAS(alias()),
         IP(AppDef.copyOfGeneric(CommunicationProps.excludingIp()) //
                 .setRequired(true)),
@@ -114,6 +116,7 @@ public class AppHeatLuxtronik
             var bundle = AbstractOpenemsApp.getTranslationBundle(l);
             var heatId = this.getId(t, p, Property.HEAT_ID);
             var modbusId = this.getId(t, p, Property.MODBUS_ID);
+            var controlId = this.getId(t, p, Property.CONTROL_ID);
             var alias = this.getString(p, l, Property.ALIAS);
             var ip = this.getString(p, l, Property.IP);
             var readOnly = this.getBoolean(p, Property.READ_ONLY);
@@ -130,10 +133,18 @@ public class AppHeatLuxtronik
                             "Bridge.Modbus.Tcp", JsonUtils.buildJsonObject() //
                                     .addProperty("ip", ip) //
                                     .onlyIf(t == ConfigurationTarget.ADD, b -> b.addProperty("port", 502)) //
+                                    .build()), //
+                    new EdgeConfig.Component(controlId, "Luxtronik heating control", //
+                            "Controller.Heat.Luxtronik.SHI", JsonUtils.buildJsonObject() //
+                                    .addProperty("heat.id", heatId) //
+                                    .addProperty("mode", "MONITOR") //
+                                    .addProperty("dryRun", true) //
                                     .build()));
 
             return AppConfiguration.create() //
                     .addTask(Tasks.component(components)) //
+                    .addTask(Tasks.schedulerByCentralOrder( //
+                            new SchedulerComponent(controlId, "Controller.Heat.Luxtronik.SHI", this.getAppId()))) //
                     .build();
         };
     }
