@@ -1,6 +1,7 @@
 package io.openems.edge.app.heat;
 
 import static io.openems.edge.app.common.props.CommonProps.alias;
+import static io.openems.edge.core.appmanager.formly.enums.InputType.NUMBER;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -67,6 +68,56 @@ public class AppHeatLuxtronik
                 .setTranslatedDescriptionWithAppPrefix(".readOnly.description") //
                 .setField(JsonFormlyUtil::buildCheckboxFromNameable) //
                 .setRequired(true))),
+        CONTROL_MODE(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue("MONITOR") //
+                .setTranslatedLabelWithAppPrefix(".controlMode.label") //
+                .setTranslatedDescriptionWithAppPrefix(".controlMode.description") //
+                .setField(JsonFormlyUtil::buildSelectFromNameable, (app, property, l, parameter, field) -> //
+                        field.setOptions(java.util.List.of("MONITOR", "MANUAL", "PRICE", //
+                                "PV_SURPLUS", "PRICE_OR_PV"))) //
+                .setRequired(true))), //
+        CONTROL_DRY_RUN(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(true) //
+                .setTranslatedLabelWithAppPrefix(".controlDryRun.label") //
+                .setTranslatedDescriptionWithAppPrefix(".controlDryRun.description") //
+                .setField(JsonFormlyUtil::buildCheckboxFromNameable) //
+                .setRequired(true))), //
+        MANUAL_OFFSET(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(0) //
+                .setTranslatedLabelWithAppPrefix(".manualOffset.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(-30).setMax(30)) //
+                .setRequired(true))), //
+        BOOST_OFFSET(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(10) //
+                .setTranslatedLabelWithAppPrefix(".boostOffset.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(0).setMax(30)) //
+                .setRequired(true))), //
+        REDUCE_OFFSET(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(-10) //
+                .setTranslatedLabelWithAppPrefix(".reduceOffset.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(-30).setMax(0)) //
+                .setRequired(true))), //
+        CHEAP_PRICE(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(200) //
+                .setTranslatedLabelWithAppPrefix(".cheapPrice.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(0).setMax(1000)) //
+                .setRequired(true))), //
+        EXPENSIVE_PRICE(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(350) //
+                .setTranslatedLabelWithAppPrefix(".expensivePrice.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(1).setMax(1000)) //
+                .setRequired(true))), //
+        MIN_GRID_EXPORT(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(1000) //
+                .setTranslatedLabelWithAppPrefix(".minGridExport.label") //
+                .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
+                        field.setInputType(NUMBER).setMin(0).setMax(30000)) //
+                .setRequired(true))), //
         EXTENDED_REGISTERS(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
                 .setDefaultValue(false) //
                 .setTranslatedLabelWithAppPrefix(".extendedRegisters.label") //
@@ -121,6 +172,15 @@ public class AppHeatLuxtronik
             var ip = this.getString(p, l, Property.IP);
             var readOnly = this.getBoolean(p, Property.READ_ONLY);
             var extended = this.getBoolean(p, Property.EXTENDED_REGISTERS);
+            var controlMode = this.getString(p, l, Property.CONTROL_MODE);
+            var dryRun = this.getBoolean(p, Property.CONTROL_DRY_RUN);
+            var manualOffset = this.getInt(p, Property.MANUAL_OFFSET);
+            var boostOffset = this.getInt(p, Property.BOOST_OFFSET);
+            var reduceOffset = this.getInt(p, Property.REDUCE_OFFSET);
+            var cheapPrice = this.getInt(p, Property.CHEAP_PRICE);
+            var expensivePrice = this.getInt(p, Property.EXPENSIVE_PRICE);
+            var minGridExport = this.getInt(p, Property.MIN_GRID_EXPORT);
+
 
             var components = java.util.List.of(//
                     new EdgeConfig.Component(heatId, alias, "Heat.Luxtronik.SHI", JsonUtils.buildJsonObject() //
@@ -137,8 +197,14 @@ public class AppHeatLuxtronik
                     new EdgeConfig.Component(controlId, "Luxtronik heating control", //
                             "Controller.Heat.Luxtronik.SHI", JsonUtils.buildJsonObject() //
                                     .addProperty("heat.id", heatId) //
-                                    .addProperty("mode", "MONITOR") //
-                                    .addProperty("dryRun", true) //
+                                    .addProperty("mode", controlMode) //
+                                    .addProperty("dryRun", dryRun) //
+                                    .addProperty("manualOffsetTenthsK", manualOffset) //
+                                    .addProperty("boostOffsetTenthsK", boostOffset) //
+                                    .addProperty("reduceOffsetTenthsK", reduceOffset) //
+                                    .addProperty("cheapPriceEurMwh", cheapPrice) //
+                                    .addProperty("expensivePriceEurMwh", expensivePrice) //
+                                    .addProperty("minGridExportWatts", minGridExport) //
                                     .build()));
 
             return AppConfiguration.create() //
