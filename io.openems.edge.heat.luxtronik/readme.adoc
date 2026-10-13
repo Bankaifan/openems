@@ -43,6 +43,50 @@ without reimplementing the wider energy-management platform.
 * Restrict access to Modbus TCP to a trusted network (no public port forwarding).
 * Prefer a single write-control owner (OpenEMS vs. other smart-home software).
 
+== Native OpenEMS Heating Controller
+
+`Controller.Heat.Luxtronik.SHI` is a normal scheduled OpenEMS controller in the
+same driver bundle. The App Manager installs it under the existing **Heat**
+category along with the device and Modbus bridge. The scheduler is managed
+through OpenEMS' `Tasks.schedulerByCentralOrder` mechanism.
+
+It exposes built-in configuration in the standard component editor and App
+Manager (no separate dashboard):
+
+* MONITOR - observe only, no writes.
+* MANUAL - a fixed heating-curve offset in tenths of a kelvin.
+* PRICE - apply a bounded heating-curve boost/reduction based on the existing
+  OpenEMS `TariffManager` grid-buy price (EUR/MWh).
+* PV_SURPLUS - apply a bounded boost when a real OpenEMS grid meter
+  (`_sum/GridActivePower`) reports at least the configured export power.
+* PRICE_OR_PV - combine the two verified signals. If neither source is
+  available, the controller issues no writes.
+
+The controller is initially `mode=MONITOR` and `dryRun=true`. To activate
+writes, the user must explicitly configure a different mode and set
+`dryRun=false` as well as disable device `readOnly` after validating the
+hardware. Its write path uses SHI mode 2 with a heating curve offset; it waits
+for mode read-back and enforces a minimum time between offset changes.
+Unsupported capabilities, undefined SHI values (`32767`), and unavailable
+price or grid data prevent writes. The native SHI mode is not seized merely
+to apply a neutral offset. The controller does not override a different SHI
+master already in offset mode.
+
+The firmware may reset SHI commands after 15 minutes of missing master
+requests; it is not safe to combine SHI with another active controller or
+simultaneous SG-Ready control. Disable competing myUplink/Home Assistant
+automations before enabling live control, and observe the actual device
+temperature and compressor cycling after each change.
+
+Unlike the Askoma/MyPv resistive heater, Luxtronik cannot accept a continuous
+electrical power request; therefore it intentionally does **not** implement
+`ManagedHeatElement` or claim to be `EnergySchedulable`. The price/PV
+policy is a conventional OpenEMS Controller reading the existing tariff and
+metering interfaces. Other SHI raw controls remain available as validated
+device channels but are not automatically exercised by this heating offset
+policy (hot water, cooling, mixers, hard/soft power limits and blocks require
+dedicated commissioning and should never be toggled indiscriminately).
+
 == Standard App Manager installation
 
 The OpenEMS App Manager now provides `App.Heat.Luxtronik` in the existing
