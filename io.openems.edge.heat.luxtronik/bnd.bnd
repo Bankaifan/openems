@@ -12,4 +12,9 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.edge.meter.api,\
 
 -testpath: \
-	${testpath}
+	${testpath},\
+	io.openems.edge.heat.api,\
+	io.openems.edge.bridge.modbus,\
+	io.openems.edge.meter.api,\
+	io.openems.edge.common,\
+	io.openems.common
