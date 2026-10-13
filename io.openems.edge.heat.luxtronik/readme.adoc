@@ -40,3 +40,19 @@ Before enabling control, implement and test:
 * A test against a simulated Modbus server before any live device write
 
 Never use the user's live heat pump as the first write-test target.
+
+== Authoritative SHI register specification
+
+* https://files.ait-group.net/FILES/Alpha-InnoTec/Betriebsanleitungen/01%20Waermepumpen/05%20Regler/Zubehoer/83026900aDE_SHI.pdf[ait-deutschland Smart Home Interface Modbus TCP operating manual (German)]
+* https://api.library.loxone.com/downloader/file/2883/83026903aUK_SHI.pdf[ait-deutschland Smart Home Interface Modbus TCP operating manual (English)]
+
+The `ShiWriteRegister` enum records documented zero-based holding-register
+addresses, engineering-unit scaling and admissible raw ranges for heating, DHW,
+mixing circuits, cooling, power limitation and block signals. Tests cover bounds,
+signed two's-complement conversion and duplicate addresses.
+
+**The enum is metadata only:** it is deliberately not wired to Modbus write
+tasks. Writing requires validating device capabilities, mode prerequisites,
+timeout behaviour and the interaction between SHI and Smart Grid. Do not
+enable Smart Grid simultaneously with SHI control. The existing driver
+continues to read only.
