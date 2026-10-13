@@ -30,7 +30,7 @@ jobs:
       - name: Print Checkstyle XML diagnostics
         if: failure()
         run: |
-          find io.openems.edge.heat.luxtronik/build/reports/checkstyle -type f -name "*.xml" -print -exec grep -n "<error" {} \\; || true
+          grep -Rn '<error' io.openems.edge.heat.luxtronik/build/reports/checkstyle/ io.openems.edge.core/build/reports/checkstyle/ || true
       - name: Upload Checkstyle report
         if: always()
         uses: actions/upload-artifact@v4
