@@ -25,15 +25,9 @@ public interface HeatLuxtronik extends OpenemsComponent {
         ERROR_NUMBER(Doc.of(OpenemsType.INTEGER)),
         HEATING_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
         HEATING_SETPOINT(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        HEATING_OFFSET(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
         HOT_WATER_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        HOT_WATER_SETPOINT(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        HOT_WATER_OFFSET(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        HEATING_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        HOT_WATER_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        COOLING_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        POWER_LIMIT_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
-        POWER_LIMIT_TENTHS_KW(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE));
+        HOT_WATER_SETPOINT(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE));
+
 
         private final Doc doc;
 
