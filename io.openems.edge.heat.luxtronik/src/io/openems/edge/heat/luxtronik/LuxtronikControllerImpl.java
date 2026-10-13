@@ -49,7 +49,7 @@ import io.openems.edge.timeofusetariff.api.TariffManager;
         immediate = true, //
         configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
-@GenerateTargetsFromReferences("Heat")
+@GenerateTargetsFromReferences("heat")
 public class LuxtronikControllerImpl extends AbstractOpenemsComponent
         implements LuxtronikController, Controller, OpenemsComponent {
 
