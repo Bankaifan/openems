@@ -18,6 +18,9 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
     @AttributeDefinition(name = "Modbus bridge ID")
     String modbus_id() default "modbusLuxtronik0";
 
+    @AttributeDefinition(name = "Enable SHI Modbus writes (requires verified compatible firmware)")
+    boolean allowWrites() default false;
+
     @AttributeDefinition(name = "Modbus unit ID")
     int modbusUnitId() default 1;
 }
