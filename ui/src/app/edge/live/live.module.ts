@@ -13,6 +13,7 @@ import { CommonProduction } from "./common/production/common-production";
 import { CommonSelfconsumption } from "./common/selfconsumption/common-selfconsumption";
 import { SohStatusBannerComponent } from "./common/soh/components/soh-status-banner/soh-status-banner";
 import { StorageLiveModule } from "./common/storage/storage.module";
+import { TariffPriceChartComponent } from "./common/tariff-price-chart/tariff-price-chart";
 import { WeatherModule } from "./common/weather/weather.module";
 import { Controller_ChannelthresholdComponent } from "./Controller/Channelthreshold/Channelthreshold";
 import { ControllerChpFlatComponent } from "./Controller/ChpSoc/flat/ChpSoc";
@@ -56,6 +57,7 @@ import { SystemOutageInfoComponent } from "./system-outage-info/oe-system-outage
 @NgModule({
     imports: [
         BrowserAnimationsModule,
+        TariffPriceChartComponent,
         BrowserModule,
         CommonAutarchy,
         CommonConsumption,
