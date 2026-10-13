@@ -44,7 +44,15 @@ class AppHeatLuxtronikTest {
                         AppHeatLuxtronik.Property.ALIAS, //
                         AppHeatLuxtronik.Property.IP, //
                         AppHeatLuxtronik.Property.READ_ONLY, //
-                        AppHeatLuxtronik.Property.EXTENDED_REGISTERS);
+                        AppHeatLuxtronik.Property.EXTENDED_REGISTERS, //
+                        AppHeatLuxtronik.Property.CONTROL_MODE, //
+                        AppHeatLuxtronik.Property.CONTROL_DRY_RUN, //
+                        AppHeatLuxtronik.Property.MANUAL_OFFSET, //
+                        AppHeatLuxtronik.Property.BOOST_OFFSET, //
+                        AppHeatLuxtronik.Property.REDUCE_OFFSET, //
+                        AppHeatLuxtronik.Property.CHEAP_PRICE, //
+                        AppHeatLuxtronik.Property.EXPENSIVE_PRICE, //
+                        AppHeatLuxtronik.Property.MIN_GRID_EXPORT);
     }
 
     @Test
@@ -81,6 +89,12 @@ class AppHeatLuxtronikTest {
                                 .addProperty("heat.id", "heatLuxtronik0") //
                                 .addProperty("mode", "MONITOR") //
                                 .addProperty("dryRun", true) //
+                                .addProperty("manualOffsetTenthsK", 0) //
+                                .addProperty("boostOffsetTenthsK", 10) //
+                                .addProperty("reduceOffsetTenthsK", -10) //
+                                .addProperty("cheapPriceEurMwh", 200) //
+                                .addProperty("expensivePriceEurMwh", 350) //
+                                .addProperty("minGridExportWatts", 1000) //
                                 .build()));
     }
 
@@ -116,6 +130,14 @@ class AppHeatLuxtronikTest {
                 .addProperty("IP", IP) //
                 .addProperty("READ_ONLY", readOnly) //
                 .addProperty("EXTENDED_REGISTERS", extended) //
+                .addProperty("CONTROL_MODE", "MONITOR") //
+                .addProperty("CONTROL_DRY_RUN", true) //
+                .addProperty("MANUAL_OFFSET", 0) //
+                .addProperty("BOOST_OFFSET", 10) //
+                .addProperty("REDUCE_OFFSET", -10) //
+                .addProperty("CHEAP_PRICE", 200) //
+                .addProperty("EXPENSIVE_PRICE", 350) //
+                .addProperty("MIN_GRID_EXPORT", 1000) //
                 .build();
     }
 }
