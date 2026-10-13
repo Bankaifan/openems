@@ -111,6 +111,11 @@
                     }
                   }
 
+                  <!-- Tariff forecasts are regular responsive widgets. -->
+                  <ion-col *ngFor="let provider of tariffProviders" size="12" [attr.size-lg]="widgetColumnSize" class="ion-no-padding">
+                    <oe-tariff-price-chart [componentId]="provider.id" [alias]="provider.alias" [currency]="tariffCurrency" [edge]="edge"></oe-tariff-price-chart>
+                  </ion-col>
+
                   <!-- Widgets depending on the configuration of the OpenEMS Edge -->
                   <ng-container *ngFor="let widget of widgets.list" [ngSwitch]="widget.name">
                     <!-- Widgets that are likely to be configured frequently -->
