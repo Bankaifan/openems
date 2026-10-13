@@ -49,6 +49,28 @@ public class ShiWriteRegisterTest {
     }
 
     @Test
+    public void testModePrerequisites() {
+        assertEquals(ShiWriteRegister.HEATING_MODE,
+                ShiWriteRegister.HEATING_OFFSET.requiredModeRegister());
+        assertEquals(2, ShiWriteRegister.HEATING_OFFSET.requiredModeValue());
+        assertEquals(ShiWriteRegister.HOT_WATER_MODE,
+                ShiWriteRegister.HOT_WATER_SETPOINT.requiredModeRegister());
+        assertEquals(1, ShiWriteRegister.HOT_WATER_SETPOINT.requiredModeValue());
+        assertEquals(-2, ShiWriteRegister.POWER_LIMIT_TENTHS_KW.requiredModeValue());
+        assertEquals(ShiWriteRegister.OVERALL_HEATING_MODE,
+                ShiWriteRegister.OVERALL_HEATING_LEVEL.requiredModeRegister());
+    }
+
+    @Test
+    public void testExtendedFirmwareGates() {
+        assertTrue(ShiWriteRegister.OVERALL_HEATING_OFFSET.requiresExtendedSupport());
+        assertTrue(ShiWriteRegister.CIRCULATION_START.requiresExtendedSupport());
+        assertTrue(!ShiWriteRegister.POWER_LIMIT_MODE.requiresExtendedSupport());
+        assertTrue(ShiWriteRegister.HOT_WATER_OFFSET.isSigned());
+        assertTrue(!ShiWriteRegister.HOT_WATER_SETPOINT.isSigned());
+    }
+
+    @Test
     public void testPowerAndBlockRanges() {
         assertEquals(10041, ShiWriteRegister.POWER_LIMIT_TENTHS_KW.address());
         assertEquals(300, ShiWriteRegister.POWER_LIMIT_TENTHS_KW.validate(300));
