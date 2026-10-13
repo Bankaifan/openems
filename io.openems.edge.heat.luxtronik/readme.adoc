@@ -43,6 +43,18 @@ without reimplementing the wider energy-management platform.
 * Restrict access to Modbus TCP to a trusted network (no public port forwarding).
 * Prefer a single write-control owner (OpenEMS vs. other smart-home software).
 
+== Standard App Manager installation
+
+The OpenEMS App Manager now provides `App.Heat.Luxtronik` in the existing
+Heat category. It creates a `Heat.Luxtronik.SHI` component and a standard
+`Bridge.Modbus.Tcp` component (port 502) from the user's IP address.
+Monitor-only operation is the default; SHI write access and optional
+extended registers are explicit installable properties.
+
+As with other OpenEMS heat apps, users can also configure the device and
+Modbus bridge manually in the standard component editor. The app does not
+create a proprietary controller or add a custom UI dashboard.
+
 == Configuration
 
 Component factory: `Heat.Luxtronik.SHI`.
