@@ -85,7 +85,16 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 
 		for (var register : ShiWriteRegister.values()) {
 			IntegerWriteChannel channel = this.channel(register);
-			channel.onSetNextWrite(value -> this.validateWrite(register, value));
+			channel.onSetNextWrite(value -> {
+                try {
+                    this.validateWrite(register, value);
+                } catch (OpenemsException e) {
+                    // OpenEMS stores nextWrite before invoking this callback. Never
+                    // leave a rejected request queued for the Modbus write task.
+                    channel._setNextWriteValue(null);
+                    throw e;
+                }
+            });
 		}
 	}
 
