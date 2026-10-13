@@ -21,6 +21,12 @@ jobs:
         run: ./gradlew :io.openems.edge.heat.luxtronik:test --stacktrace --console=plain
       - name: Validate style
         run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain --info
+      - name: Compile standard OpenEMS Heat App integration
+        run: ./gradlew :io.openems.edge.core:compileJava --stacktrace --console=plain
+      - name: Test Luxtronik App Manager installation
+        run: ./gradlew :io.openems.edge.core:test --tests io.openems.edge.app.heat.AppHeatLuxtronikTest --stacktrace --console=plain
+      - name: Validate App Manager style
+        run: ./gradlew :io.openems.edge.core:checkstyleMain --console=plain
       - name: Print Checkstyle XML diagnostics
         if: failure()
         run: |
