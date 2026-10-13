@@ -153,6 +153,7 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 		case HOT_WATER_MODE, HOT_WATER_SETPOINT, HOT_WATER_OFFSET, HOT_WATER_LEVEL,
 				HOT_WATER_BLOCK, EXTRA_HOT_WATER -> HeatLuxtronik.ChannelId.HOT_WATER_ENABLED;
 		case COOLING_BLOCK -> HeatLuxtronik.ChannelId.COOLING_ENABLED;
+		case ROOM_SETPOINT -> HeatLuxtronik.ChannelId.RBE_ENABLED;
 		case POOL_BLOCK -> HeatLuxtronik.ChannelId.POOL_ENABLED;
 		case MIXER1_HEATING_MODE, MIXER1_HEATING_SETPOINT, MIXER1_HEATING_OFFSET,
 				MIXER1_HEATING_LEVEL -> HeatLuxtronik.ChannelId.HEATING_MC1_ENABLED;
@@ -224,7 +225,7 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 				m(HeatLuxtronik.ChannelId.COOLING_ENABLED, new CoilElement(10002)),
 				m(HeatLuxtronik.ChannelId.POOL_ENABLED, new CoilElement(10003)),
 				new CoilElement(10004),
-				new CoilElement(10005),
+				m(HeatLuxtronik.ChannelId.RBE_ENABLED, new CoilElement(10005)),
 				m(HeatLuxtronik.ChannelId.HEATING_MC1_ENABLED, new CoilElement(10006)),
 				m(HeatLuxtronik.ChannelId.COOLING_MC1_ENABLED, new CoilElement(10007)),
 				m(HeatLuxtronik.ChannelId.HEATING_MC2_ENABLED, new CoilElement(10008)),
