@@ -63,6 +63,7 @@ import io.openems.edge.app.hardware.IoGpio;
 import io.openems.edge.app.hardware.KMtronic8Channel;
 import io.openems.edge.app.hardware.MasterBox2v0;
 import io.openems.edge.app.heat.AppHeatAskoma;
+import io.openems.edge.app.heat.AppHeatLuxtronik;
 import io.openems.edge.app.heat.AppHeatMyPv;
 import io.openems.edge.app.heat.CombinedHeatAndPower;
 import io.openems.edge.app.heat.HeatAskomaReadOnly;
@@ -1400,6 +1401,16 @@ public final class Apps {
 	public static final AppHeatAskoma heatAskoma(AppManagerTestBundle t) {
 		return app(t, AppHeatAskoma::new, "App.Heat.Askoma");
 	}
+
+    /**
+     * Test method for creating a Luxtronik Heat App.
+     *
+     * @param t the app manager test bundle
+     * @return the Luxtronik app instance
+     */
+    public static final AppHeatLuxtronik heatLuxtronik(AppManagerTestBundle t) {
+        return app(t, AppHeatLuxtronik::new, "App.Heat.Luxtronik");
+    }
 
 	/**
 	 * Test method for creating a {@link AppPredictionDefault}.
