@@ -1,11 +1,16 @@
 package io.openems.edge.heat.luxtronik;
 
+import io.openems.common.channel.AccessMode;
+import io.openems.common.channel.Unit;
+import io.openems.common.types.OpenemsType;
+import io.openems.edge.common.channel.Doc;
+
 /**
  * Writable Luxtronik SHI holding registers, using zero-based Modbus addresses.
  * Values are raw register values (temperatures in tenths of degrees/Kelvin).
  * Source: ait-deutschland SHI operating manual 83026903aUK.
  */
-public enum ShiWriteRegister {
+public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId {
     HEATING_MODE(10000, 0, 3),
     HEATING_SETPOINT(10001, 150, 750),
     HEATING_OFFSET(10002, -200, 200),
@@ -48,28 +53,94 @@ public enum ShiWriteRegister {
     CIRCULATION_START(10070, 0, 1),
     EXTRA_HOT_WATER(10071, 0, 1);
 
+    /**
+     * True for additional controls which may require Luxtronik firmware 3.92 or
+     * additional configuration of the connected heat-pump installation.
+     */
+    public boolean requiresExtendedSupport() {
+        return switch (this) {
+        case HEATING_LEVEL, HOT_WATER_LEVEL, MIXER1_HEATING_LEVEL, MIXER2_HEATING_LEVEL,
+                MIXER3_HEATING_LEVEL, OVERALL_HEATING_MODE, OVERALL_HEATING_OFFSET,
+                OVERALL_HEATING_LEVEL, CIRCULATION_START, EXTRA_HOT_WATER -> true;
+        default -> false;
+        };
+    }
+
+    /** Returns the required mode-register, or null for independent controls. */
+    public ShiWriteRegister requiredModeRegister() {
+        return switch (this) {
+        case HEATING_SETPOINT, HEATING_OFFSET, HEATING_LEVEL -> HEATING_MODE;
+        case HOT_WATER_SETPOINT, HOT_WATER_OFFSET, HOT_WATER_LEVEL -> HOT_WATER_MODE;
+        case MIXER1_HEATING_SETPOINT, MIXER1_HEATING_OFFSET, MIXER1_HEATING_LEVEL -> MIXER1_HEATING_MODE;
+        case MIXER1_COOLING_SETPOINT, MIXER1_COOLING_OFFSET -> MIXER1_COOLING_MODE;
+        case MIXER2_HEATING_SETPOINT, MIXER2_HEATING_OFFSET, MIXER2_HEATING_LEVEL -> MIXER2_HEATING_MODE;
+        case MIXER2_COOLING_SETPOINT, MIXER2_COOLING_OFFSET -> MIXER2_COOLING_MODE;
+        case MIXER3_HEATING_SETPOINT, MIXER3_HEATING_OFFSET, MIXER3_HEATING_LEVEL -> MIXER3_HEATING_MODE;
+        case MIXER3_COOLING_SETPOINT, MIXER3_COOLING_OFFSET -> MIXER3_COOLING_MODE;
+        case POWER_LIMIT_TENTHS_KW -> POWER_LIMIT_MODE;
+        case OVERALL_HEATING_OFFSET, OVERALL_HEATING_LEVEL -> OVERALL_HEATING_MODE;
+        default -> null;
+        };
+    }
+
+    /** Returns the required mode value, or -1 if no mode is required. */
+    public int requiredModeValue() {
+        return switch (this) {
+        case HEATING_SETPOINT, HOT_WATER_SETPOINT, MIXER1_HEATING_SETPOINT, MIXER1_COOLING_SETPOINT,
+                MIXER2_HEATING_SETPOINT, MIXER2_COOLING_SETPOINT, MIXER3_HEATING_SETPOINT,
+                MIXER3_COOLING_SETPOINT -> 1;
+        case HEATING_OFFSET, HOT_WATER_OFFSET, MIXER1_HEATING_OFFSET, MIXER1_COOLING_OFFSET,
+                MIXER2_HEATING_OFFSET, MIXER2_COOLING_OFFSET, MIXER3_HEATING_OFFSET,
+                MIXER3_COOLING_OFFSET, OVERALL_HEATING_OFFSET -> 2;
+        case HEATING_LEVEL, HOT_WATER_LEVEL, MIXER1_HEATING_LEVEL, MIXER2_HEATING_LEVEL,
+                MIXER3_HEATING_LEVEL, OVERALL_HEATING_LEVEL -> 3;
+        case POWER_LIMIT_TENTHS_KW -> -2; // either 1 (soft) or 2 (hard)
+        default -> -1;
+        };
+    }
+
+    /** True if the register is specified as INT16 instead of UINT16. */
+    public boolean isSigned() {
+        return this.minimum < 0 || this == HEATING_OFFSET || this == HOT_WATER_OFFSET;
+    }
+
+    private final Doc doc;
     private final int address;
     private final int minimum;
     private final int maximum;
 
     ShiWriteRegister(int address, int minimum, int maximum) {
         this.address = address;
+        var channelDoc = Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE);
+        if (minimum < 0 || this.name().contains("SETPOINT")) {
+            channelDoc.unit(Unit.DEZIDEGREE_CELSIUS);
+        }
+        this.doc = channelDoc;
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
+    @Override
+    public Doc doc() {
+        return this.doc;
+    }
+
+    /** Gets the zero-based Modbus holding register address. */
     public int address() {
         return this.address;
     }
 
+    /** Gets the permitted minimum (raw units). */
     public int minimum() {
         return this.minimum;
     }
 
+    /** Gets the permitted maximum (raw units). */
     public int maximum() {
         return this.maximum;
     }
 
+    /** Validates the desired raw register value without silently clamping. */
     public int validate(int value) {
         if (value < this.minimum || value > this.maximum) {
             throw new IllegalArgumentException(this.name() + " must be between "
@@ -78,6 +149,7 @@ public enum ShiWriteRegister {
         return value;
     }
 
+    /** Encodes a validated signed or unsigned value as a Modbus word. */
     public int toModbusWord(int value) {
         return this.validate(value) & 0xffff;
     }
