@@ -29,7 +29,8 @@ class AppHeatLuxtronikTest {
         this.appManagerTestBundle = new AppManagerTestBundle(null, null, t -> List.of(//
                 this.app = Apps.heatLuxtronik(t) //
         ), null, new AppManagerTestBundle.PseudoComponentManagerFactory());
-        this.appManagerTestBundle.addComponentAggregateTask();
+        var components = this.appManagerTestBundle.addComponentAggregateTask();
+        this.appManagerTestBundle.addSchedulerByCentralOrderAggregateTask(components);
     }
 
     @Test
@@ -39,6 +40,7 @@ class AppHeatLuxtronikTest {
                 .hasOnlyProperties( //
                         AppHeatLuxtronik.Property.HEAT_ID, //
                         AppHeatLuxtronik.Property.MODBUS_ID, //
+                        AppHeatLuxtronik.Property.CONTROL_ID, //
                         AppHeatLuxtronik.Property.ALIAS, //
                         AppHeatLuxtronik.Property.IP, //
                         AppHeatLuxtronik.Property.READ_ONLY, //
@@ -73,6 +75,12 @@ class AppHeatLuxtronikTest {
                         JsonUtils.buildJsonObject() //
                                 .addProperty("ip", IP) //
                                 .addProperty("port", 502) //
+                                .build()), //
+                new EdgeConfig.Component("ctrlHeatLuxtronik0", "Luxtronik heating control",
+                        "Controller.Heat.Luxtronik.SHI", JsonUtils.buildJsonObject() //
+                                .addProperty("heat.id", "heatLuxtronik0") //
+                                .addProperty("mode", "MONITOR") //
+                                .addProperty("dryRun", true) //
                                 .build()));
     }
 
