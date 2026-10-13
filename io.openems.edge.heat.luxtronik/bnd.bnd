@@ -9,11 +9,15 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.edge.bridge.modbus,\
 	io.openems.edge.common,\
 	io.openems.edge.heat.api,\
+	io.openems.edge.controller.api,\
+	io.openems.edge.timeofusetariff.api,\
 	io.openems.edge.meter.api,\
 
 -testpath: \
 	${testpath},\
 	io.openems.edge.heat.api,\
+	io.openems.edge.controller.api,\
+	io.openems.edge.timeofusetariff.api,\
 	io.openems.edge.bridge.modbus,\
 	io.openems.j2mod,\
 	io.openems.edge.meter.api,\
