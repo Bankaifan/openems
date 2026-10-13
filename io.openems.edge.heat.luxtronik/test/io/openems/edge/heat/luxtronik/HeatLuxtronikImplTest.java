@@ -9,6 +9,7 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 
 class HeatLuxtronikImplTest {
@@ -21,6 +22,16 @@ class HeatLuxtronikImplTest {
 		assertThrows(OpenemsException.class,
 				() -> component.validateWrite(ShiWriteRegister.HEATING_MODE, 2));
 	}
+
+    @Test
+    void rejectedValuesMustNeverRemainQueued() {
+        var component = new HeatLuxtronikImpl();
+        IntegerWriteChannel mode = component.channel(ShiWriteRegister.HEATING_MODE);
+        assertThrows(OpenemsException.class, () -> mode.setNextWriteValue(2));
+        assertTrue(mode.getNextWriteValue().isEmpty());
+        assertThrows(OpenemsException.class, () -> mode.setNextWriteValue(32767));
+        assertTrue(mode.getNextWriteValue().isEmpty());
+    }
 
 	@Test
 	void testWriteProtocolRequiresExplicitOptIn() throws Exception {
