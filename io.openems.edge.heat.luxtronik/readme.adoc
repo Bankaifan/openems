@@ -1,0 +1,23 @@
+= Luxtronik SHI Heat Pump Monitoring
+
+Read-only Modbus input-register integration for Alpha Innotec / Luxtronik 3.9x heat pumps.
+
+== Scope
+
+* Factory PID: `Heat.Luxtronik.SHI`
+* Modbus bridge: configured using `modbus_id`
+* Modbus Unit ID: configurable, default 1
+* Read-only: uses Modbus function code 04 (input registers); does not issue write commands
+* Exposes operating mode, flow/return and hot-water temperatures, error number and measured power
+
+== Safety and compatibility
+
+This component is **not a heat pump controller**. It cannot set temperatures, switch operating modes or otherwise command the heat pump. The register mapping is specific to the SHI interface tested with Luxtronik 3.9x; verify device and firmware compatibility before enabling.
+
+== Configuration
+
+Create a Modbus TCP bridge and add `Heat.Luxtronik.SHI` with the matching `modbus_id`. Configure the unit ID according to the device. The electricity meter nature reports consumption and should not be confused with a grid meter.
+
+== Development status
+
+The initial source was recovered from a previously built OSGi bundle. A reproducible build, register-mapping tests and code review are required before an upstream pull request. No credentials or site-specific connection details belong in the repository.
