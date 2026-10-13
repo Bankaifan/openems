@@ -51,11 +51,18 @@ import io.openems.edge.meter.api.ElectricityMeter;
  * master request. Smart Grid and SHI must not be active simultaneously.
  */
 @Designate(ocd = Config.class, factory = true)
-@Component(name = "Heat.Luxtronik.SHI", immediate = true,
-		configurationPolicy = ConfigurationPolicy.REQUIRE)
+@Component(//
+		name = HeatLuxtronikImpl.FACTORY_ID, //
+		immediate = true, //
+		configurationPolicy = ConfigurationPolicy.REQUIRE, //
+		property = { //
+				"type=CONSUMPTION_METERED" //
+		})
 @GenerateTargetsFromReferences("Modbus")
 public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 		implements HeatLuxtronik, Heat, ModbusComponent, OpenemsComponent, ElectricityMeter {
+
+	public static final String FACTORY_ID = "Heat.Luxtronik.SHI";
 
 	private volatile boolean readOnly = true;
 	private volatile boolean enableExtendedRegisters;
