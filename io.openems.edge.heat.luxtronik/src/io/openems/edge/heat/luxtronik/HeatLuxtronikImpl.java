@@ -135,8 +135,8 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 		}
 
 		if (register == ShiWriteRegister.HOT_WATER_SETPOINT) {
-			var lower = this.<Integer>channel(HeatLuxtronik.ChannelId.HOT_WATER_MIN_TENTHS_C).value().get();
-			var upper = this.<Integer>channel(HeatLuxtronik.ChannelId.HOT_WATER_MAX_TENTHS_C).value().get();
+			var lower = ((IntegerReadChannel) this.channel(HeatLuxtronik.ChannelId.HOT_WATER_MIN_TENTHS_C)).value().get();
+			var upper = ((IntegerReadChannel) this.channel(HeatLuxtronik.ChannelId.HOT_WATER_MAX_TENTHS_C)).value().get();
 			if (lower == null || upper == null || lower == 32767 || upper == 32767
 					|| value < lower || value > upper) {
 				throw new OpenemsException("Luxtronik SHI: DHW setpoint must respect the configured "
