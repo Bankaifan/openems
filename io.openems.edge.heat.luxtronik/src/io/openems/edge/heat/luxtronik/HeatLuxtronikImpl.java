@@ -25,6 +25,7 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
+import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.taskmanager.Priority;
 
@@ -54,6 +55,7 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
 
     @Activate
     private void activate(ComponentContext context, Config config) throws OpenemsException {
+        this.allowWrites = config.allowWrites();
         super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
     }
 
@@ -68,9 +70,11 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
         return MeterType.CONSUMPTION_METERED;
     }
 
+    private boolean allowWrites;
+
     @Override
     protected ModbusProtocol defineModbusProtocol() {
-        return new ModbusProtocol(this,
+        var protocol = new ModbusProtocol(this,
                 new FC4ReadInputRegistersTask(10002, Priority.LOW,
                         m(HeatLuxtronik.ChannelId.OPERATING_MODE, new UnsignedWordElement(10002))),
                 new FC4ReadInputRegistersTask(10100, Priority.LOW,
@@ -89,6 +93,18 @@ public class HeatLuxtronikImpl extends AbstractOpenemsModbusComponent
                         m(HeatLuxtronik.ChannelId.COMPRESSOR_THERMAL_W, new UnsignedWordElement(10300), MULTIPLY(100)),
                         m(ElectricityMeter.ChannelId.ACTIVE_POWER, new UnsignedWordElement(10301), MULTIPLY(100)))
         );
+        if (this.allowWrites) {
+            // SHI holding registers use zero-based addresses. Never enable writes by default.
+            protocol.addTask(new FC6WriteRegisterTask(10000,
+                    m(HeatLuxtronik.ChannelId.HEATING_MODE, new UnsignedWordElement(10000))));
+            protocol.addTask(new FC6WriteRegisterTask(10001,
+                    m(HeatLuxtronik.ChannelId.HEATING_SETPOINT, new UnsignedWordElement(10001))));
+            protocol.addTask(new FC6WriteRegisterTask(10005,
+                    m(HeatLuxtronik.ChannelId.HOT_WATER_MODE, new UnsignedWordElement(10005))));
+            protocol.addTask(new FC6WriteRegisterTask(10006,
+                    m(HeatLuxtronik.ChannelId.HOT_WATER_SETPOINT, new UnsignedWordElement(10006))));
+        }
+        return protocol;
     }
 
     @Override
