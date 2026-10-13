@@ -142,6 +142,9 @@ public enum ShiWriteRegister implements io.openems.edge.common.channel.ChannelId
 
     /** Validates the desired raw register value without silently clamping. */
     public int validate(int value) {
+        if (this == OVERALL_HEATING_MODE && value == 1) {
+            throw new IllegalArgumentException("Overall heating mode 1 is reserved");
+        }
         if (value < this.minimum || value > this.maximum) {
             throw new IllegalArgumentException(this.name() + " must be between "
                     + this.minimum + " and " + this.maximum + ", got " + value);
