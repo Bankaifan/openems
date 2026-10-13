@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.common.channel.IntegerWriteChannel;
+import io.openems.edge.bridge.modbus.api.task.FC2ReadInputsTask;
+import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 
 class HeatLuxtronikImplTest {
@@ -19,6 +21,8 @@ class HeatLuxtronikImplTest {
 		var component = new HeatLuxtronikImpl();
 		var tasks = component.defineModbusProtocol().getTaskManager().getTasks();
 		assertTrue(tasks.stream().noneMatch(FC6WriteRegisterTask.class::isInstance));
+        assertTrue(tasks.stream().anyMatch(FC2ReadInputsTask.class::isInstance));
+        assertTrue(tasks.stream().anyMatch(FC3ReadRegistersTask.class::isInstance));
 		assertThrows(OpenemsException.class,
 				() -> component.validateWrite(ShiWriteRegister.HEATING_MODE, 2));
 	}
