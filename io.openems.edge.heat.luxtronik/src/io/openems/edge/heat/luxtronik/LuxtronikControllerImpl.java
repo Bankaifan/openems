@@ -133,11 +133,11 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
                 .value().get();
 
         var decision = LuxtronikControlPolicy.decide(this.settings(cfg), price, gridWatts);
-        var currentMode = ((IntegerReadChannel) this.heat.channel(ShiWriteRegister.HEATING_MODE))
+        final var currentMode = ((IntegerReadChannel) this.heat.channel(ShiWriteRegister.HEATING_MODE))
                 .value().get();
         var currentOffset = ((IntegerReadChannel) this.heat.channel(ShiWriteRegister.HEATING_OFFSET))
                 .value().get();
-        boolean heatingSupported = Boolean.TRUE.equals(
+        final boolean heatingSupported = Boolean.TRUE.equals(
                 ((BooleanReadChannel) this.heat.channel(HeatLuxtronik.ChannelId.HEATING_ENABLED))
                         .value().get());
 
