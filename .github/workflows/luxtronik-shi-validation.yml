@@ -20,4 +20,4 @@ jobs:
       - name: Run Luxtronik tests
         run: ./gradlew :io.openems.edge.heat.luxtronik:test --stacktrace --console=plain
       - name: Validate style
-        run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain
+        run: ./gradlew :io.openems.edge.heat.luxtronik:checkstyleMain --console=plain\n      - name: Upload Checkstyle report\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: luxtronik-checkstyle-report\n          path: io.openems.edge.heat.luxtronik/build/reports/checkstyle/\n          if-no-files-found: warn
