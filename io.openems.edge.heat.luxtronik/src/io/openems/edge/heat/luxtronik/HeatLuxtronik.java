@@ -1,6 +1,7 @@
 package io.openems.edge.heat.luxtronik;
 
 import io.openems.common.types.OpenemsType;
+import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Unit;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -21,7 +22,18 @@ public interface HeatLuxtronik extends OpenemsComponent {
         HOT_WATER_TARGET_TENTHS_C(Doc.of(OpenemsType.INTEGER).unit(Unit.DEZIDEGREE_CELSIUS)),
         COMPRESSOR_THERMAL_W(Doc.of(OpenemsType.INTEGER).unit(Unit.WATT)),
         COMPRESSOR_ELECTRIC_W(Doc.of(OpenemsType.INTEGER).unit(Unit.WATT)),
-        ERROR_NUMBER(Doc.of(OpenemsType.INTEGER));
+        ERROR_NUMBER(Doc.of(OpenemsType.INTEGER)),
+        HEATING_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HEATING_SETPOINT(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HEATING_OFFSET(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HOT_WATER_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HOT_WATER_SETPOINT(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HOT_WATER_OFFSET(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HEATING_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        HOT_WATER_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        COOLING_LOCK(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        POWER_LIMIT_MODE(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE)),
+        POWER_LIMIT_TENTHS_KW(Doc.of(OpenemsType.INTEGER).accessMode(AccessMode.READ_WRITE));
 
         private final Doc doc;
 
