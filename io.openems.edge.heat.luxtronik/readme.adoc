@@ -21,3 +21,22 @@ Create a Modbus TCP bridge and add `Heat.Luxtronik.SHI` with the matching `modbu
 == Development status
 
 The initial source was recovered from a previously built OSGi bundle. A reproducible build, register-mapping tests and code review are required before an upstream pull request. No credentials or site-specific connection details belong in the repository.
+
+== Write control development gate
+
+Active control is not yet implemented. The prototype previously contained speculative
+Modbus FC6 write mappings. They have been removed pending authoritative verification
+of the SHI holding-register table, access rights, supported firmware, engineering
+units and legal value ranges. Do not infer writable addresses from input-register
+addresses.
+
+Before enabling control, implement and test:
+
+* Documented write-register mappings for each supported device/firmware version
+* Strict input validation and explicit operating-mode enumerations
+* Opt-in configuration with writes disabled by default
+* Read-back verification, error reporting and safe handling of communication loss
+* Integration with existing OpenEMS heat pump / SG Ready controllers where appropriate
+* A test against a simulated Modbus server before any live device write
+
+Never use the user's live heat pump as the first write-test target.
