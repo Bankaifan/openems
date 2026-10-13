@@ -71,6 +71,16 @@ public class ShiWriteRegisterTest {
     }
 
     @Test
+    public void testOverallHeatingOffsetUsesNonnegativeDecikelvin() {
+        assertEquals(0, ShiWriteRegister.OVERALL_HEATING_OFFSET.validate(0));
+        assertEquals(200, ShiWriteRegister.OVERALL_HEATING_OFFSET.validate(200));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShiWriteRegister.OVERALL_HEATING_OFFSET.validate(-1));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShiWriteRegister.OVERALL_HEATING_OFFSET.validate(201));
+    }
+
+    @Test
     public void testPowerAndBlockRanges() {
         assertEquals(10041, ShiWriteRegister.POWER_LIMIT_TENTHS_KW.address());
         assertEquals(300, ShiWriteRegister.POWER_LIMIT_TENTHS_KW.validate(300));
