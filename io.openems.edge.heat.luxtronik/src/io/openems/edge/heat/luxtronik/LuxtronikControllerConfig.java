@@ -56,5 +56,16 @@ import io.openems.edge.heat.luxtronik.LuxtronikControlPolicy.Mode;
     @AttributeDefinition(name = "Minimum time between changes [minutes]", description = "Avoid short cycling")
     int minChangeMinutes() default 15;
 
+    @AttributeDefinition(name = "Extended SHI control profiles [JSON]", //
+            description = "Register map with normal/cheap/expensive/pv raw values. "
+                    + "Defaults to no advanced control. Example: "
+                    + "{\\\"MIXER1_HEATING_OFFSET\\\":{\\\"normal\\\":0,\\\"pv\\\":5}}")
+    String advancedControlPlan() default "{}";
+
+    @AttributeDefinition(name = "Enable extended SHI control profiles", //
+            description = "Opt-in for automatic control of additional SHI functions; "
+                    + "dry-run and device read-only protections remain effective")
+    boolean advancedControlEnabled() default false;
+
     String webconsole_configurationFactory_nameHint() default "Luxtronik controller [{id}]";
 }
