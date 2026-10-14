@@ -43,6 +43,52 @@ without reimplementing the wider energy-management platform.
 * Restrict access to Modbus TCP to a trusted network (no public port forwarding).
 * Prefer a single write-control owner (OpenEMS vs. other smart-home software).
 
+== Full SHI control profiles
+
+The standard `Controller.Heat.Luxtronik.SHI` now accepts an optional
+`advancedControlPlan` JSON map containing **any** register enumerated by
+`ShiWriteRegister`. This includes heating, DHW, cooling, mixing circuits 1–3,
+blocks, room/overall heating control, soft/hard power limiting and optional
+circulation/additional-hot-water commands. Values are raw Modbus units.
+
+For example:
+
+[source,json]
+----
+{
+  "MIXER1_HEATING_OFFSET": {"normal": 0, "cheap": 5, "expensive": -5, "pv": 10},
+  "HOT_WATER_SETPOINT": {"normal": 500, "cheap": 520},
+  "POWER_LIMIT_MODE": {"normal": 1},
+  "POWER_LIMIT_TENTHS_KW": {"normal": 25}
+}
+----
+
+The examples only illustrate configuration syntax; they are **not** recommended
+setpoints for a specific heat-pump model. Supported SHI features depend on the
+device's capability bits, operating mode and configured manufacturer limits.
+Never enable a plan without checking the actual installed system.
+
+Profiles select a target for each register. `normal` is a fallback, `cheap`
+applies at or below the configured tariff threshold, `expensive` at or above
+the expensive threshold, and `pv` on verified grid export. If a signal is
+absent, its override cannot be selected. Omitted targets are not written.
+The driver validates every request against the SHI register bounds, capability
+flags, operating-mode prerequisites and DHW temperature limits. The controller
+waits for prerequisite mode read-back and issues at most one command per cycle,
+enforcing the configured adjustment interval.
+
+The advanced plan requires `advancedControlEnabled=true`; the default is
+`false` with an empty `{}` plan. A second independent safeguard,
+`dryRun=true`, logs proposed actions without writing. The device itself
+defaults to `readOnly=true`. Keep **both safeguards** while validating.
+
+Note: an advanced plan takes precedence over the simple heating-offset
+controller. One-shot operations cannot be retriggered repeatedly within a
+running controller instance. Mode ownership and cross-master coordination
+must be verified for each heat-pump firmware before enabling real writes.
+Manufacturer safety control and the heat-pump's native limits remain
+authoritative; the integration does not bypass them.
+
 == Native OpenEMS Heating Controller
 
 `Controller.Heat.Luxtronik.SHI` is a normal scheduled OpenEMS controller in the
