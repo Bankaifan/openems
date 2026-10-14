@@ -239,6 +239,12 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
     /**
      * Drives all explicitly configured SHI controls, one validated request per
      * cycle, with prerequisite-mode read-back and fail-closed device checks.
+     *
+     * @param cfg active configuration
+     * @param now timestamp for write interval checks
+     * @param price current electricity price or null
+     * @param gridWatts measured grid power or null
+     * @throws OpenemsNamedException for controller errors
      */
     private void runAdvanced(LuxtronikControllerConfig cfg, Instant now, Double price,
             Integer gridWatts) throws OpenemsNamedException {
@@ -321,6 +327,7 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
                     "SHI rejected " + register.name() + ": " + e.getMessage());
         }
     }
+
     private void setMode(int mode) throws OpenemsNamedException {
         IntegerWriteChannel channel = this.heat.channel(ShiWriteRegister.HEATING_MODE);
         channel.setNextWriteValue(mode);
