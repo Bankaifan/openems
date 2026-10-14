@@ -118,6 +118,18 @@ public class AppHeatLuxtronik
                 .setField(JsonFormlyUtil::buildInputFromNameable, (app, property, l, parameter, field) -> //
                         field.setInputType(NUMBER).setMin(0).setMax(30000)) //
                 .setRequired(true))), //
+        ADVANCED_CONTROL_ENABLED(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue(false) //
+                .setTranslatedLabelWithAppPrefix(".advancedControlEnabled.label") //
+                .setTranslatedDescriptionWithAppPrefix(".advancedControlEnabled.description") //
+                .setField(JsonFormlyUtil::buildCheckboxFromNameable) //
+                .setRequired(true))), //
+        ADVANCED_CONTROL_PLAN(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
+                .setDefaultValue("{}") //
+                .setTranslatedLabelWithAppPrefix(".advancedControlPlan.label") //
+                .setTranslatedDescriptionWithAppPrefix(".advancedControlPlan.description") //
+                .setField(JsonFormlyUtil::buildInputFromNameable) //
+                .setRequired(true))), //
         EXTENDED_REGISTERS(AppDef.copyOfGeneric(CommonProps.defaultDef(), appDef -> appDef //
                 .setDefaultValue(false) //
                 .setTranslatedLabelWithAppPrefix(".extendedRegisters.label") //
@@ -172,6 +184,8 @@ public class AppHeatLuxtronik
             var ip = this.getString(p, l, Property.IP);
             var readOnly = this.getBoolean(p, Property.READ_ONLY);
             var extended = this.getBoolean(p, Property.EXTENDED_REGISTERS);
+            var advancedEnabled = this.getBoolean(p, Property.ADVANCED_CONTROL_ENABLED);
+            var advancedPlan = this.getString(p, l, Property.ADVANCED_CONTROL_PLAN);
             var controlMode = this.getString(p, l, Property.CONTROL_MODE);
             var dryRun = this.getBoolean(p, Property.CONTROL_DRY_RUN);
             var manualOffset = this.getInt(p, Property.MANUAL_OFFSET);
@@ -205,6 +219,8 @@ public class AppHeatLuxtronik
                                     .addProperty("cheapPriceEurMwh", cheapPrice) //
                                     .addProperty("expensivePriceEurMwh", expensivePrice) //
                                     .addProperty("minGridExportWatts", minGridExport) //
+                                    .addProperty("advancedControlEnabled", advancedEnabled) //
+                                    .addProperty("advancedControlPlan", advancedPlan) //
                                     .build()));
 
             return AppConfiguration.create() //
