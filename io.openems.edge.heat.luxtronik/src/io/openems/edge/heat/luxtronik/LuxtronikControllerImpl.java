@@ -9,6 +9,8 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.Map;
 
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -69,6 +71,9 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
     private volatile LuxtronikControllerConfig config;
     private Instant lastOffsetWrite;
     private boolean ownsControl;
+    private volatile Map<ShiWriteRegister, LuxtronikAdvancedControl.Profile> advancedControlPlan = Map.of();
+    private final Map<ShiWriteRegister, Integer> advancedLastRequest = new EnumMap<>(ShiWriteRegister.class);
+    private Instant advancedLastWrite;
 
     public LuxtronikControllerImpl() {
         super(//
@@ -97,6 +102,11 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
             this.settings(config);
         } catch (IllegalArgumentException e) {
             throw new OpenemsException("Luxtronik controller: " + e.getMessage());
+        }
+        try {
+            this.advancedControlPlan = LuxtronikAdvancedControl.parse(config.advancedControlPlan());
+        } catch (IllegalArgumentException e) {
+            throw new OpenemsException("Invalid advanced Luxtronik profile: " + e.getMessage());
         }
         this.config = config;
     }
@@ -151,6 +161,10 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
         setValue(this, LuxtronikController.ChannelId.DRY_RUN, cfg.dryRun());
         setValue(this, LuxtronikController.ChannelId.CONTROL_ACTIVE, this.ownsControl);
 
+        if (cfg.advancedControlEnabled()) {
+            this.runAdvanced(cfg, now, price, gridWatts);
+            return;
+        }
         if (cfg.mode() == Mode.MONITOR) {
             if (this.ownsControl && !cfg.dryRun() && Integer.valueOf(2).equals(currentMode)) {
                 this.setMode(0);
@@ -221,6 +235,92 @@ public class LuxtronikControllerImpl extends AbstractOpenemsComponent
                 "Requested " + decision.offsetTenthsKelvin() + " dK: " + decision.reason());
     }
 
+
+    /**
+     * Drives all explicitly configured SHI controls, one validated request per
+     * cycle, with prerequisite-mode read-back and fail-closed device checks.
+     */
+    private void runAdvanced(LuxtronikControllerConfig cfg, Instant now, Double price,
+            Integer gridWatts) throws OpenemsNamedException {
+        if (this.advancedControlPlan.isEmpty() || cfg.mode() == Mode.MONITOR) {
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "Extended SHI: no active control profiles");
+            return;
+        }
+        for (var entry : this.advancedControlPlan.entrySet()) {
+            var register = entry.getKey();
+            Integer target = LuxtronikAdvancedControl.target(entry.getValue(), cfg.mode(),
+                    price, gridWatts, cfg.cheapPriceEurMwh(), cfg.expensivePriceEurMwh(),
+                    cfg.minGridExportWatts());
+            if (target == null) {
+                continue;
+            }
+            var channel = (IntegerReadChannel) this.heat.channel(register);
+            Integer current = channel.value().get();
+            if (current == null || current == 32767) {
+                continue;
+            }
+            if (current.equals(target)) {
+                continue;
+            }
+            var prerequisite = register.requiredModeRegister();
+            if (prerequisite != null) {
+                Integer currentMode = ((IntegerReadChannel) this.heat.channel(prerequisite))
+                        .value().get();
+                int expectedMode = register.requiredModeValue();
+                if (currentMode == null || currentMode == 32767) {
+                    continue;
+                }
+                if (expectedMode == -2) {
+                    if (currentMode != 1 && currentMode != 2) {
+                        this.requestAdvanced(prerequisite, 1, cfg, now);
+                        return;
+                    }
+                } else if (currentMode != expectedMode) {
+                    this.requestAdvanced(prerequisite, expectedMode, cfg, now);
+                    return;
+                }
+            }
+            this.requestAdvanced(register, target, cfg, now);
+            return;
+        }
+        setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                "Extended SHI: configured values match or cannot be read");
+    }
+
+    private void requestAdvanced(ShiWriteRegister register, int target,
+            LuxtronikControllerConfig cfg, Instant now) throws OpenemsNamedException {
+        if (cfg.dryRun()) {
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "DRY RUN: " + register.name() + " -> " + target);
+            return;
+        }
+        if ((register == ShiWriteRegister.CIRCULATION_START
+                || register == ShiWriteRegister.EXTRA_HOT_WATER)
+                && Integer.valueOf(target).equals(this.advancedLastRequest.get(register))) {
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "One-shot SHI command already issued: " + register.name());
+            return;
+        }
+        if (this.advancedLastWrite != null
+                && now.isBefore(this.advancedLastWrite.plus(Duration.ofMinutes(cfg.minChangeMinutes())))) {
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "Waiting for minimum SHI adjustment interval");
+            return;
+        }
+        try {
+            ((HeatLuxtronikImpl) this.heat).validateWrite(register, target);
+            IntegerWriteChannel channel = this.heat.channel(register);
+            channel.setNextWriteValue(target);
+            this.advancedLastRequest.put(register, target);
+            this.advancedLastWrite = now;
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "SHI requested: " + register.name() + " -> " + target);
+        } catch (OpenemsException e) {
+            setValue(this, LuxtronikController.ChannelId.DECISION_REASON,
+                    "SHI rejected " + register.name() + ": " + e.getMessage());
+        }
+    }
     private void setMode(int mode) throws OpenemsNamedException {
         IntegerWriteChannel channel = this.heat.channel(ShiWriteRegister.HEATING_MODE);
         channel.setNextWriteValue(mode);
