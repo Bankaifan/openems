@@ -45,6 +45,8 @@ class AppHeatLuxtronikTest {
                         AppHeatLuxtronik.Property.IP, //
                         AppHeatLuxtronik.Property.READ_ONLY, //
                         AppHeatLuxtronik.Property.EXTENDED_REGISTERS, //
+                        AppHeatLuxtronik.Property.ADVANCED_CONTROL_ENABLED, //
+                        AppHeatLuxtronik.Property.ADVANCED_CONTROL_PLAN, //
                         AppHeatLuxtronik.Property.CONTROL_MODE, //
                         AppHeatLuxtronik.Property.CONTROL_DRY_RUN, //
                         AppHeatLuxtronik.Property.MANUAL_OFFSET, //
@@ -95,6 +97,8 @@ class AppHeatLuxtronikTest {
                                 .addProperty("cheapPriceEurMwh", 200) //
                                 .addProperty("expensivePriceEurMwh", 350) //
                                 .addProperty("minGridExportWatts", 1000) //
+                                .addProperty("advancedControlEnabled", false) //
+                                .addProperty("advancedControlPlan", "{}") //
                                 .build()));
     }
 
@@ -130,6 +134,8 @@ class AppHeatLuxtronikTest {
                 .addProperty("IP", IP) //
                 .addProperty("READ_ONLY", readOnly) //
                 .addProperty("EXTENDED_REGISTERS", extended) //
+                .addProperty("ADVANCED_CONTROL_ENABLED", false) //
+                .addProperty("ADVANCED_CONTROL_PLAN", "{}") //
                 .addProperty("CONTROL_MODE", "MONITOR") //
                 .addProperty("CONTROL_DRY_RUN", true) //
                 .addProperty("MANUAL_OFFSET", 0) //
