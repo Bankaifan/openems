@@ -18,6 +18,7 @@ import io.openems.edge.heat.luxtronik.LuxtronikControlPolicy.Mode;
  * Example: {"HOT_WATER_SETPOINT":{"normal":500,"cheap":520},
  * "MIXER1_HEATING_OFFSET":{"normal":0,"pv":5}}.
  *
+ * <p>
  * Values use documented raw SHI units. Only configured registers are touched.
  */
 public final class LuxtronikAdvancedControl {
