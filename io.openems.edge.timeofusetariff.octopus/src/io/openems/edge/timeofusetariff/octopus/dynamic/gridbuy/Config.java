@@ -27,7 +27,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Password", description = "Password for Octopus Energy account login", type = AttributeType.PASSWORD)
 	String password() default "";
 
-	@AttributeDefinition(name = "Account Number", description = "Octopus Energy account number, e.g. A-01F15F4E")
+	@AttributeDefinition(name = "Account Number", description = "Octopus Energy account number, e.g. A-1234ABCD")
 	String accountNumber() default "";
 
 	@AttributeDefinition(name = "Refresh interval [min]", description = "Refresh interval after a successful update (minimum 15)")

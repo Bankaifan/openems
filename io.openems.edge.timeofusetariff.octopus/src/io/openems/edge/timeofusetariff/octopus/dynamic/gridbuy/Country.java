@@ -7,6 +7,11 @@ package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
  * Only countries flagged as supported have been tested with this component.
  * The endpoints of the other countries are prepared, but the component does not
  * send any request for them yet.
+ *
+ * <p>
+ * Prices are converted from ct/kWh assuming a currency with 100 subunits per
+ * unit (e.g. EUR). Countries with other price units (e.g. pence or yen) need
+ * their own unit handling before they can be enabled.
  */
 public enum Country {
 	GERMANY("https://api.oeg-kraken.energy/v1/graphql/", true), //
