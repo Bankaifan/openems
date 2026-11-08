@@ -4,30 +4,33 @@ import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
-@ObjectClassDefinition(name = "Time-Of-Use Tariff Octopus Dynamic Grid-Buy",
-		description = "Account-specific Octopus Energy dynamic electricity prices")
+@ObjectClassDefinition(//
+		name = "Time-Of-Use Tariff Octopus Dynamic Grid-Buy", //
+		description = "Time-Of-Use Tariff GridBuy implementation for the dynamic tariff of Octopus Energy via Kraken API.")
 @interface Config {
-	@AttributeDefinition(name = "Component-ID")
-	String id() default "timeofusetariff0";
 
-	@AttributeDefinition(name = "Alias")
+	@AttributeDefinition(name = "Component-ID", description = "Unique ID of this Component")
+	String id() default "timeOfUseTariff0";
+
+	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
 	String alias() default "";
 
-	@AttributeDefinition(name = "Enabled")
+	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
 
-	@AttributeDefinition(name = "Octopus account number",
-			description = "Account number of the electricity contract, e.g. A-XXXXXXXX")
-	String accountNumber();
+	@AttributeDefinition(name = "Country", description = "Octopus Energy market; currently only Germany is supported")
+	Country country() default Country.GERMANY;
 
-	@AttributeDefinition(name = "Octopus login email")
-	String email();
+	@AttributeDefinition(name = "Email", description = "E-mail address used for Octopus Energy account login")
+	String email() default "";
 
-	@AttributeDefinition(name = "Octopus login password", type = AttributeType.PASSWORD)
-	String password();
+	@AttributeDefinition(name = "Password", description = "Password for Octopus Energy account login", type = AttributeType.PASSWORD)
+	String password() default "";
 
-	@AttributeDefinition(name = "Refresh interval in minutes",
-			description = "Octopus publishes the following day in the afternoon")
+	@AttributeDefinition(name = "Account Number", description = "Octopus Energy account number, e.g. A-01F15F4E")
+	String accountNumber() default "";
+
+	@AttributeDefinition(name = "Refresh interval [min]", description = "Refresh interval after a successful update (minimum 15)")
 	int refreshMinutes() default 30;
 
 	String webconsole_configurationFactory_nameHint() default "Time-Of-Use Tariff Octopus Dynamic Grid-Buy [{id}]";
