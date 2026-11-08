@@ -1,4 +1,4 @@
-package io.openems.edge.timeofusetariff.octopusdynamic;
+package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -58,10 +58,10 @@ import io.openems.edge.timeofusetariff.api.TimeOfUseTariff;
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
-public class OctopusDynamicDeImpl extends AbstractOpenemsComponent
-		implements OpenemsComponent, TimeOfUseTariff, OctopusDynamicStatus {
+public class TariffOctopusDynamicGridBuyImpl extends AbstractOpenemsComponent
+		implements OpenemsComponent, TimeOfUseTariff, TariffOctopusDynamicGridBuy {
 
-	private final Logger log = LoggerFactory.getLogger(OctopusDynamicDeImpl.class);
+	private final Logger log = LoggerFactory.getLogger(TariffOctopusDynamicGridBuyImpl.class);
 	private static final String API_URL = "https://api.oeg-kraken.energy/v1/graphql/";
 	private static final String TOKEN_MUTATION = """
 		mutation Authentication($email: String!, $password: String!) {
@@ -86,7 +86,7 @@ public class OctopusDynamicDeImpl extends AbstractOpenemsComponent
 	private BridgeHttpFactory httpBridgeFactory;
 	private BridgeHttp httpBridge;
 	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
-		var t = new Thread(r, "octopus-dynamic-de");
+		var t = new Thread(r, "octopus-dynamic-gridbuy");
 		t.setDaemon(true);
 		return t;
 	});
@@ -109,8 +109,8 @@ public class OctopusDynamicDeImpl extends AbstractOpenemsComponent
 	private volatile String email;
 	private volatile String password;
 
-	public OctopusDynamicDeImpl() {
-		super(OpenemsComponent.ChannelId.values(), OctopusDynamicStatus.ChannelId.values());
+	public TariffOctopusDynamicGridBuyImpl() {
+		super(OpenemsComponent.ChannelId.values(), TariffOctopusDynamicGridBuy.ChannelId.values());
 	}
 
 	@Activate

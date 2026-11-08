@@ -1,4 +1,4 @@
-package io.openems.edge.timeofusetariff.octopusdynamic;
+package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
 
 import io.openems.common.channel.Level;
 import io.openems.common.types.OpenemsType;
@@ -9,7 +9,7 @@ import io.openems.edge.common.component.OpenemsComponent;
  * Diagnostic channels for Octopus Dynamic GridBuy.
  * Timestamp channels contain Unix epoch seconds (UTC).
  */
-public interface OctopusDynamicStatus extends OpenemsComponent {
+public interface TariffOctopusDynamicGridBuy extends OpenemsComponent {
 
     enum ChannelId implements io.openems.edge.common.channel.ChannelId {
         HTTP_STATUS_CODE(Doc.of(OpenemsType.INTEGER)),

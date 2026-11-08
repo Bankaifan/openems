@@ -1,4 +1,4 @@
-package io.openems.edge.timeofusetariff.octopusdynamic;
+package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThrows;
@@ -17,23 +17,23 @@ import com.google.gson.JsonParser;
  * Offline contract tests for Octopus DE quarter-hour prices. No real account
  * data, network access or credentials are required.
  */
-public class OctopusDynamicDeImplTest {
+public class TariffOctopusDynamicGridBuyImplTest {
 
 	@Test
 	public void rateLimitHonorsRetryAfter() {
-		assertEquals(true, OctopusDynamicDeImpl.retryDelaySeconds(429, 1, 3600) >= 3600);
+		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(429, 1, 3600) >= 3600);
 	}
 
 	@Test
 	public void exponentialBackoffIncreases() {
-		assertEquals(true, OctopusDynamicDeImpl.retryDelaySeconds(503, 2, 0)
-				> OctopusDynamicDeImpl.retryDelaySeconds(503, 1, 0));
+		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 2, 0)
+				> TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 1, 0));
 	}
 
 	@Test
 	public void parsesRetryAfterHeader() {
-		assertEquals(120L, OctopusDynamicDeImpl.parseRetryAfter("120"));
-		assertEquals(0L, OctopusDynamicDeImpl.parseRetryAfter("invalid"));
+		assertEquals(120L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("120"));
+		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("invalid"));
 	}
 
 	@Test
@@ -106,11 +106,11 @@ public class OctopusDynamicDeImplTest {
 
 	@Test
 	public void retryAfterAndBackoffBoundaryCases() {
-		assertEquals(0L, OctopusDynamicDeImpl.parseRetryAfter(null));
-		assertEquals(0L, OctopusDynamicDeImpl.parseRetryAfter("-10"));
-		assertEquals(true, OctopusDynamicDeImpl.retryDelaySeconds(429, 1, 7200) >= 7200);
-		assertEquals(true, OctopusDynamicDeImpl.retryDelaySeconds(503, 10, 0) <= 2520);
-		assertEquals(true, OctopusDynamicDeImpl.retryDelaySeconds(401, 1, 0) >= 43200);
+		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter(null));
+		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("-10"));
+		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(429, 1, 7200) >= 7200);
+		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 10, 0) <= 2520);
+		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(401, 1, 0) >= 43200);
 	}
 
 	private static String forecast(String slots) {
@@ -129,11 +129,11 @@ public class OctopusDynamicDeImplTest {
 	}
 
 	private static io.openems.edge.timeofusetariff.api.TimeOfUsePrices parse(String json) throws IOException {
-		return OctopusDynamicDeImpl.parsePrices(JsonParser.parseString(json).getAsJsonObject());
+		return TariffOctopusDynamicGridBuyImpl.parsePrices(JsonParser.parseString(json).getAsJsonObject());
 	}
 
 
-	private static final class StubProvider extends OctopusDynamicDeImpl {
+	private static final class StubProvider extends TariffOctopusDynamicGridBuyImpl {
 
 		private final Queue<Object> responses = new ArrayDeque<>();
 		private int requests;
@@ -180,7 +180,7 @@ public class OctopusDynamicDeImplTest {
 		}
 
 		void failWithHttpStatus(int status) {
-			this.responses.add(new OctopusDynamicDeImpl.HttpFailure(status, 0));
+			this.responses.add(new TariffOctopusDynamicGridBuyImpl.HttpFailure(status, 0));
 		}
 
 		void failWithIoException() {
@@ -294,25 +294,25 @@ public class OctopusDynamicDeImplTest {
 	@Test
 	public void classifiesAuthenticationAndAccountErrorsWithoutLoggingCredentials() {
 		assertEquals("AUTHENTICATION_REJECTED",
-				OctopusDynamicDeImpl.categorizeFailure("authentication", new IOException("HTTP_STATUS_401")));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("HTTP_STATUS_401")));
 		assertEquals("AUTHENTICATION_REJECTED",
-				OctopusDynamicDeImpl.categorizeFailure("authentication", new IOException("GRAPHQL_ERRORS")));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("GRAPHQL_ERRORS")));
 		assertEquals("ACCOUNT_ACCESS_DENIED",
-				OctopusDynamicDeImpl.categorizeFailure("forecast", new IOException("HTTP_STATUS_403")));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast", new IOException("HTTP_STATUS_403")));
 		assertEquals("ACCOUNT_NOT_FOUND",
-				OctopusDynamicDeImpl.categorizeFailure("price-validation", new IOException("ACCOUNT_NOT_FOUND")));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("price-validation", new IOException("ACCOUNT_NOT_FOUND")));
 		assertEquals("REQUEST_FAILED",
-				OctopusDynamicDeImpl.categorizeFailure("authentication", new IOException("Sensitive provider response")));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("Sensitive provider response")));
 		assertEquals("REQUEST_FAILED",
-				OctopusDynamicDeImpl.categorizeFailure("authentication", new IOException()));
+				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException()));
 	}
 
 	@Test
 	public void refreshCadenceUsesNormalIntervalAndFiveMinuteRetry() {
-		assertEquals(30L, OctopusDynamicDeImpl.nextRefreshDelayMinutes(true, 30));
-		assertEquals(15L, OctopusDynamicDeImpl.nextRefreshDelayMinutes(true, 5));
-		assertEquals(5L, OctopusDynamicDeImpl.nextRefreshDelayMinutes(false, 30));
-		assertEquals(5L, OctopusDynamicDeImpl.nextRefreshDelayMinutes(false, 15));
+		assertEquals(30L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(true, 30));
+		assertEquals(15L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(true, 5));
+		assertEquals(5L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(false, 30));
+		assertEquals(5L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(false, 15));
 	}
 
 	@Test
@@ -357,11 +357,11 @@ public class OctopusDynamicDeImplTest {
 
 	@Test
 	public void classifiesProviderConnectivityFailures() {
-		assertEquals("NETWORK_TIMEOUT", OctopusDynamicDeImpl.categorizeFailure("forecast",
+		assertEquals("NETWORK_TIMEOUT", TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast",
 				new java.net.SocketTimeoutException()));
-		assertEquals("API_RATE_LIMITED", OctopusDynamicDeImpl.categorizeFailure("forecast",
+		assertEquals("API_RATE_LIMITED", TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast",
 				new IOException("HTTP_STATUS_429")));
-		assertEquals("INVALID_PRICE_FORECAST", OctopusDynamicDeImpl.categorizeFailure("price-validation",
+		assertEquals("INVALID_PRICE_FORECAST", TariffOctopusDynamicGridBuyImpl.categorizeFailure("price-validation",
 				new IOException("Missing quarter-hour price")));
 	}
 
