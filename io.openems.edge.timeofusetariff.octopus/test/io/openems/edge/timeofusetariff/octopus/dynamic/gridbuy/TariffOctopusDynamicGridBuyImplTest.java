@@ -1,368 +1,291 @@
 package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
 
+import static io.openems.edge.common.currency.Currency.EUR;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 
 import org.junit.Test;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import io.openems.common.bridge.http.api.BridgeHttp.Endpoint;
+import io.openems.common.bridge.http.api.HttpError;
+import io.openems.common.bridge.http.api.HttpResponse;
+import io.openems.common.bridge.http.dummy.DummyBridgeHttpExecutor;
+import io.openems.common.bridge.http.dummy.DummyBridgeHttpFactory;
+import io.openems.common.bridge.http.dummy.DummyEndpointFetcher;
+import io.openems.common.test.TimeLeapClock;
+import io.openems.common.types.HttpStatus;
+import io.openems.edge.common.test.ComponentTest;
+import io.openems.edge.common.test.DummyComponentManager;
+import io.openems.edge.common.test.DummyMeta;
 
 /**
- * Offline contract tests for Octopus DE quarter-hour prices. No real account
- * data, network access or credentials are required.
+ * Offline component tests. All HTTP requests are answered by a
+ * {@link DummyEndpointFetcher}; no network access or real account data is used.
  */
 public class TariffOctopusDynamicGridBuyImplTest {
 
-	@Test
-	public void rateLimitHonorsRetryAfter() {
-		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(429, 1, 3600) >= 3600);
-	}
+	private static final String VALID_FORECAST = Data.forecast(Data.agreement(//
+			Data.slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "21.5"), //
+			Data.slot("2026-10-11T10:15:00Z", "2026-10-11T10:30:00Z", "18.25"), //
+			Data.slot("2026-10-11T10:30:00Z", "2026-10-11T10:45:00Z", "20"), //
+			Data.slot("2026-10-11T10:45:00Z", "2026-10-11T11:00:00Z", "22")));
 
-	@Test
-	public void exponentialBackoffIncreases() {
-		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 2, 0)
-				> TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 1, 0));
-	}
+	/**
+	 * Simulated Kraken API. Answers token requests with a fresh token by default
+	 * and price requests from a queue.
+	 */
+	private static final class FakeKraken {
 
-	@Test
-	public void parsesRetryAfterHeader() {
-		assertEquals(120L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("120"));
-		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("invalid"));
-	}
+		private final TimeLeapClock clock = new TimeLeapClock(Instant.parse("2026-10-11T10:05:00Z"), ZoneOffset.UTC);
+		private final DummyEndpointFetcher fetcher = DummyBridgeHttpFactory.dummyEndpointFetcher();
+		private final DummyBridgeHttpExecutor executor = DummyBridgeHttpFactory.dummyBridgeHttpExecutor(this.clock,
+				true);
+		private final Queue<Object> tokenResponses = new ArrayDeque<>();
+		private final Queue<Object> priceResponses = new ArrayDeque<>();
+		private final List<String> requests = new ArrayList<>();
+		private final List<String> usedTokens = new ArrayList<>();
+		private int issuedTokens;
 
-	@Test
-	public void reauthenticatesOnceAfterUnauthorizedForecast() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"first-token\"}}");
-		provider.failWithHttpStatus(401);
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"renewed-token\"}}");
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(4, provider.requests);
-		assertEquals("renewed-token", provider.suppliedToken);
-	}
-
-	@Test
-	public void retainsPricesAfterRateLimit() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		provider.failWithHttpStatus(429);
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertArrayEquals(new Double[]{215.0}, provider.getPrices().asArray());
-	}
-
-	@Test
-	public void invalidatesCachedTokenOnPasswordChange() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"old-token\"}}");
-		provider.respond(validFutureForecast());
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"new-token\"}}");
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "old-password"));
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "new-password"));
-		assertEquals(4, provider.requests);
-	}
-
-	@Test
-	public void diagnosticChannelsResetAfterSuccessfulRetry() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.failWithHttpStatus(429);
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(true, provider.rateLimited);
-		assertEquals(true, provider.nextRetry > 0);
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(false, provider.rateLimited);
-		assertEquals(false, provider.authenticationFailed);
-		assertEquals(false, provider.serverError);
-		assertEquals(false, provider.connectionFailed);
-		assertEquals(java.time.Instant.parse("2099-01-01T12:15:00Z").getEpochSecond(),
-				provider.forecastValidUntil);
-	}
-
-	@Test
-	public void diagnosticChannelsDistinguishAuthAndServerFailures() {
-		var auth = new StubProvider();
-		auth.failWithHttpStatus(401);
-		assertEquals(false, auth.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(true, auth.authenticationFailed);
-		assertEquals(false, auth.serverError);
-
-		var server = new StubProvider();
-		server.failWithHttpStatus(503);
-		assertEquals(false, server.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(true, server.serverError);
-		assertEquals(false, server.authenticationFailed);
-	}
-
-	@Test
-	public void retryAfterAndBackoffBoundaryCases() {
-		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter(null));
-		assertEquals(0L, TariffOctopusDynamicGridBuyImpl.parseRetryAfter("-10"));
-		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(429, 1, 7200) >= 7200);
-		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(503, 10, 0) <= 2520);
-		assertEquals(true, TariffOctopusDynamicGridBuyImpl.retryDelaySeconds(401, 1, 0) >= 43200);
-	}
-
-	private static String forecast(String slots) {
-		return """
-				{"account":{"properties":[{"electricityMalos":[{"agreements":[{
-				  "unitRateForecast":[%s]
-				}]}]}]}}
-				""".formatted(slots);
-	}
-
-	private static String slot(String from, String to, String price) {
-		return """
-				{"validFrom":"%s","validTo":"%s",
-				 "unitRateInformation":{"rates":[{"latestGrossUnitRateCentsPerKwh":%s}]}}
-				""".formatted(from, to, price);
-	}
-
-	private static io.openems.edge.timeofusetariff.api.TimeOfUsePrices parse(String json) throws IOException {
-		return TariffOctopusDynamicGridBuyImpl.parsePrices(JsonParser.parseString(json).getAsJsonObject());
-	}
-
-
-	private static final class StubProvider extends TariffOctopusDynamicGridBuyImpl {
-
-		private final Queue<Object> responses = new ArrayDeque<>();
-		private int requests;
-		private String suppliedToken;
-		private boolean authenticationFailed;
-		private boolean rateLimited;
-		private boolean connectionFailed;
-		private boolean serverError;
-		private long forecastValidUntil;
-		private long nextRetry;
-
-		@Override
-		public void _setStatusAuthenticationFailed(boolean value) {
-			this.authenticationFailed = value;
+		private FakeKraken() {
+			this.fetcher.addEndpointHandler(this::handle);
 		}
 
-		@Override
-		public void _setStatusRateLimited(boolean value) {
-			this.rateLimited = value;
-		}
-
-		@Override
-		public void _setStatusConnectionFailed(boolean value) {
-			this.connectionFailed = value;
-		}
-
-		@Override
-		public void _setStatusServerError(boolean value) {
-			this.serverError = value;
-		}
-
-		@Override
-		public void _setForecastValidUntil(long value) {
-			this.forecastValidUntil = value;
-		}
-
-		@Override
-		public void _setNextRetry(long value) {
-			this.nextRetry = value;
-		}
-
-		void respond(String json) {
-			this.responses.add(JsonParser.parseString(json).getAsJsonObject());
-		}
-
-		void failWithHttpStatus(int status) {
-			this.responses.add(new TariffOctopusDynamicGridBuyImpl.HttpFailure(status, 0));
-		}
-
-		void failWithIoException() {
-			this.responses.add(new IOException("Simulated connection failure"));
-		}
-
-		@Override
-		JsonObject post(String query, JsonObject variables, String token) throws IOException {
-			this.requests++;
-			this.suppliedToken = token;
-			var next = this.responses.remove();
-			if (next instanceof IOException exception) {
-				throw exception;
+		private HttpResponse<String> handle(Endpoint endpoint) throws HttpError {
+			if (endpoint.body().contains("obtainKrakenToken")) {
+				this.requests.add("token");
+				var next = this.tokenResponses.poll();
+				return next == null ? HttpResponse.ok(Data.token("token-" + ++this.issuedTokens)) : answer(next);
 			}
-			return (JsonObject) next;
+			this.requests.add("prices");
+			this.usedTokens.add(endpoint.properties().get("Authorization"));
+			var next = this.priceResponses.poll();
+			return next == null ? HttpResponse.ok(VALID_FORECAST) : answer(next);
+		}
+
+		private static HttpResponse<String> answer(Object next) throws HttpError {
+			if (next instanceof HttpError error) {
+				throw error;
+			}
+			if (next instanceof HttpStatus status) {
+				return new HttpResponse<>(status, "{}");
+			}
+			return HttpResponse.ok((String) next);
+		}
+
+		private TariffOctopusDynamicGridBuyImpl activate(MyConfig.Builder config) throws Exception {
+			var sut = new TariffOctopusDynamicGridBuyImpl();
+			new ComponentTest(sut) //
+					.addReference("meta", new DummyMeta().withCurrency(EUR)) //
+					.addReference("componentManager", new DummyComponentManager(this.clock)) //
+					.addReference("httpBridgeFactory",
+							DummyBridgeHttpFactory.ofBridgeImpl(() -> this.fetcher, () -> this.executor)) //
+					.activate(config.build());
+			return sut;
+		}
+
+		private TariffOctopusDynamicGridBuyImpl activate() throws Exception {
+			return this.activate(validConfig());
+		}
+
+		private void runDueRequests() {
+			this.executor.update();
+		}
+
+		private void leapAndRun(long minutes) {
+			this.clock.leap(minutes, MINUTES);
+			this.executor.update();
 		}
 	}
 
-	private static String validFutureForecast() {
-		return forecast(slot("2099-01-01T12:00:00Z", "2099-01-01T12:15:00Z", "21.5"));
+	private static MyConfig.Builder validConfig() {
+		return MyConfig.create() //
+				.setId("timeOfUseTariff0") //
+				.setEmail("octopus@example.test") //
+				.setPassword("test-password") //
+				.setAccountNumber("A-TEST0000");
+	}
+
+	private static Object channel(TariffOctopusDynamicGridBuyImpl sut, TariffOctopusDynamicGridBuy.ChannelId id) {
+		return sut.channel(id).getNextValue().get();
 	}
 
 	@Test
-	public void authenticatesAndUsesTokenForAccountForecast() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.respond(validFutureForecast());
+	public void fetchesTokenAndPricesAndReusesToken() throws Exception {
+		var kraken = new FakeKraken();
+		var sut = kraken.activate();
+		kraken.runDueRequests();
 
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(2, provider.requests);
-		assertEquals("mock-token", provider.suppliedToken);
-		assertArrayEquals(new Double[]{215.0}, provider.getPrices().asArray());
+		assertEquals(List.of("token", "prices"), kraken.requests);
+		assertEquals("token-1", kraken.usedTokens.get(0));
+		assertArrayEquals(new Double[] { 215.0, 182.5, 200.0, 220.0 }, sut.getPrices().asArray());
+		assertEquals(200, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+		assertEquals(Instant.parse("2026-10-11T11:00:00Z").getEpochSecond(),
+				channel(sut, TariffOctopusDynamicGridBuy.ChannelId.FORECAST_VALID_UNTIL));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+
+		// Next refresh after the configured interval, without new login
+		kraken.leapAndRun(29);
+		assertEquals(2, kraken.requests.size());
+		kraken.leapAndRun(2);
+		assertEquals(List.of("token", "prices", "prices"), kraken.requests);
 	}
 
 	@Test
-	public void rejectsMissingCredentialsWithoutNetworkRequests() {
-		var provider = new StubProvider();
+	public void reauthenticatesOnceAfterUnauthorizedPriceRequest() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
+		var sut = kraken.activate();
+		kraken.runDueRequests();
 
-		assertEquals(false, provider.refresh("A-TEST", "", "test-password"));
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", ""));
-		assertEquals(false, provider.refresh("", "octopus@example.test", "test-password"));
-		assertEquals(0, provider.requests);
+		assertEquals(List.of("token", "prices", "token", "prices"), kraken.requests);
+		assertEquals(List.of("token-1", "token-2"), kraken.usedTokens);
+		assertFalse(sut.getPrices().isEmpty());
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
 	}
 
 	@Test
-	public void rejectsMissingAuthenticationToken() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{}}");
+	public void reauthenticatesOnceAfterExpiredTokenGraphQlError() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.priceResponses.add(Data.GRAPHQL_AUTHORIZATION_ERROR);
+		var sut = kraken.activate();
+		kraken.runDueRequests();
 
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(1, provider.requests);
+		assertEquals(List.of("token", "prices", "token", "prices"), kraken.requests);
+		assertFalse(sut.getPrices().isEmpty());
 	}
 
 	@Test
-	public void retainsValidatedForecastWhenConnectionFails() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
+	public void stopsAfterUnauthorized() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
+		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
+		var sut = kraken.activate();
+		kraken.runDueRequests();
 
-		provider.failWithIoException();
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertArrayEquals(new Double[]{215.0}, provider.getPrices().asArray());
-	}
+		assertEquals(4, kraken.requests.size());
+		assertEquals(401, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
 
-	
-
-	@Test
-	public void rejectsInvalidEmailOrPasswordResponse() {
-		var provider = new StubProvider();
-		provider.failWithIoException();
-
-		assertEquals(false, provider.refresh("A-TEST", "invalid@example.test", "wrong-password"));
-		assertEquals(1, provider.requests);
+		// No further requests until the configuration is changed
+		kraken.leapAndRun(24 * 60);
+		assertEquals(4, kraken.requests.size());
 	}
 
 	@Test
-	public void cachesTokenBetweenSuccessfulForecastRequests() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.respond(validFutureForecast());
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(3, provider.requests);
+	public void stopsAfterRejectedLogin() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.tokenResponses.add(Data.GRAPHQL_AUTHORIZATION_ERROR);
+		var sut = kraken.activate();
+		kraken.runDueRequests();
+
+		assertEquals(List.of("token"), kraken.requests);
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
+
+		kraken.leapAndRun(24 * 60);
+		assertEquals(1, kraken.requests.size());
 	}
 
 	@Test
-	public void rejectsUnknownAccountWithoutOverwritingValidPrices() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.respond(validFutureForecast());
-		assertEquals(true, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
+	public void retriesLateAfterRateLimit() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.priceResponses.add(HttpStatus.TOO_MANY_REQUESTS);
+		var sut = kraken.activate();
+		kraken.runDueRequests();
 
-		provider.respond("{\"account\":null}");
+		assertEquals(2, kraken.requests.size());
+		assertEquals(429, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_RATE_LIMITED));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
 
-		assertEquals(false, provider.refresh("A-UNKNOWN", "octopus@example.test", "test-password"));
-		assertArrayEquals(new Double[]{215.0}, provider.getPrices().asArray());
+		kraken.leapAndRun(59);
+		assertEquals(2, kraken.requests.size());
+		kraken.leapAndRun(2);
+		assertEquals(3, kraken.requests.size());
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_RATE_LIMITED));
 	}
 
 	@Test
-	public void rejectsNetworkFailureDuringPriceRequest() {
-		var provider = new StubProvider();
-		provider.respond("{\"obtainKrakenToken\":{\"token\":\"mock-token\"}}");
-		provider.failWithIoException();
+	public void retriesShortlyAfterOtherErrorsAndKeepsPrices() throws Exception {
+		var kraken = new FakeKraken();
+		var sut = kraken.activate();
+		kraken.runDueRequests();
+		assertFalse(sut.getPrices().isEmpty());
 
-		assertEquals(false, provider.refresh("A-TEST", "octopus@example.test", "test-password"));
-		assertEquals(2, provider.requests);
+		// Server error on the next refresh
+		kraken.priceResponses.add(HttpStatus.INTERNAL_SERVER_ERROR);
+		kraken.leapAndRun(31);
+		assertEquals(3, kraken.requests.size());
+		assertEquals(500, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+		assertArrayEquals(new Double[] { 200.0, 220.0 }, sut.getPrices().asArray());
+
+		// Network error: short retry again
+		kraken.priceResponses.add(new HttpError.UnknownError(new IOException("Simulated connection failure")));
+		kraken.leapAndRun(6);
+		assertEquals(4, kraken.requests.size());
+		assertEquals(-1, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+
+		// GraphQL error that is not an authorization error: no new login
+		kraken.priceResponses.add(Data.GRAPHQL_SERVER_ERROR);
+		kraken.leapAndRun(6);
+		assertEquals(5, kraken.requests.size());
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+
+		// Invalid forecast does not overwrite the previous prices either
+		kraken.priceResponses.add(Data.forecast(Data.agreement()));
+		kraken.leapAndRun(6);
+		assertEquals(6, kraken.requests.size());
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+		assertArrayEquals(new Double[] { 220.0 }, sut.getPrices().asArray());
+
+		// Recovers on the next successful refresh
+		kraken.priceResponses.add(Data.forecast(Data.agreement(//
+				Data.slot("2026-10-11T11:00:00Z", "2026-10-11T11:15:00Z", "19"))));
+		kraken.leapAndRun(6);
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+		assertArrayEquals(new Double[] { 190.0 }, sut.getPrices().asArray());
+		assertEquals(List.of("token", "prices", "prices", "prices", "prices", "prices", "prices"), kraken.requests);
 	}
 
 	@Test
-	public void classifiesAuthenticationAndAccountErrorsWithoutLoggingCredentials() {
-		assertEquals("AUTHENTICATION_REJECTED",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("HTTP_STATUS_401")));
-		assertEquals("AUTHENTICATION_REJECTED",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("GRAPHQL_ERRORS")));
-		assertEquals("ACCOUNT_ACCESS_DENIED",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast", new IOException("HTTP_STATUS_403")));
-		assertEquals("ACCOUNT_NOT_FOUND",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("price-validation", new IOException("ACCOUNT_NOT_FOUND")));
-		assertEquals("REQUEST_FAILED",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException("Sensitive provider response")));
-		assertEquals("REQUEST_FAILED",
-				TariffOctopusDynamicGridBuyImpl.categorizeFailure("authentication", new IOException()));
+	public void sendsNoRequestsForUnsupportedCountry() throws Exception {
+		var kraken = new FakeKraken();
+		var sut = kraken.activate(validConfig().setCountry(Country.UNITED_KINGDOM));
+		kraken.leapAndRun(60);
+
+		assertTrue(kraken.requests.isEmpty());
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_COUNTRY_NOT_SUPPORTED));
+		assertTrue(sut.getPrices().isEmpty());
 	}
 
 	@Test
-	public void refreshCadenceUsesNormalIntervalAndFiveMinuteRetry() {
-		assertEquals(30L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(true, 30));
-		assertEquals(15L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(true, 5));
-		assertEquals(5L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(false, 30));
-		assertEquals(5L, TariffOctopusDynamicGridBuyImpl.nextRefreshDelayMinutes(false, 15));
+	public void sendsNoRequestsWithIncompleteConfiguration() throws Exception {
+		var kraken = new FakeKraken();
+		var sut = kraken.activate(validConfig().setPassword(""));
+		kraken.leapAndRun(60);
+
+		assertTrue(kraken.requests.isEmpty());
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_CONFIGURATION_INCOMPLETE));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_COUNTRY_NOT_SUPPORTED));
 	}
 
 	@Test
-	public void convertsGrossCentPerKwhToEurPerMwh() throws Exception {
-		var first = slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "21.5");
-		var second = slot("2026-10-11T10:15:00Z", "2026-10-11T10:30:00Z", "18.25");
-		assertArrayEquals(new Double[]{215.0, 182.5}, parse(forecast(first + "," + second)).asArray());
-	}
+	public void disabledComponentSendsNoRequests() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.activate(validConfig().setEnabled(false));
+		kraken.leapAndRun(60);
 
-	@Test
-	public void rejectsMissingQuarter() {
-		var first = slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "21.5");
-		var third = slot("2026-10-11T10:30:00Z", "2026-10-11T10:45:00Z", "18.25");
-		assertThrows(IOException.class, () -> parse(forecast(first + "," + third)));
+		assertTrue(kraken.requests.isEmpty());
 	}
-
-	@Test
-	public void rejectsInvalidSlotDuration() {
-		var broken = slot("2026-10-11T10:00:00Z", "2026-10-11T11:00:00Z", "21.5");
-		assertThrows(IOException.class, () -> parse(forecast(broken)));
-	}
-
-	@Test
-	public void rejectsAmbiguousAgreements() {
-		var a = slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "21.5");
-		var b = slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "27.0");
-		assertThrows(IOException.class, () -> parse(forecast(a + "," + b)));
-	}
-
-	@Test
-	public void rejectsEmptyOrMalformedData() {
-		assertThrows(IOException.class, () -> parse(forecast("")));
-		assertThrows(IOException.class, () -> parse("{}"));
-	}
-
-	@Test
-	public void handlesUtcTimestampsAcrossDaylightSavingTime() throws Exception {
-		var a = slot("2026-10-25T00:45:00Z", "2026-10-25T01:00:00Z", "10");
-		var b = slot("2026-10-25T01:00:00Z", "2026-10-25T01:15:00Z", "11");
-		assertArrayEquals(new Double[]{100.0, 110.0}, parse(forecast(a + "," + b)).asArray());
-	}
-
-	@Test
-	public void classifiesProviderConnectivityFailures() {
-		assertEquals("NETWORK_TIMEOUT", TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast",
-				new java.net.SocketTimeoutException()));
-		assertEquals("API_RATE_LIMITED", TariffOctopusDynamicGridBuyImpl.categorizeFailure("forecast",
-				new IOException("HTTP_STATUS_429")));
-		assertEquals("INVALID_PRICE_FORECAST", TariffOctopusDynamicGridBuyImpl.categorizeFailure("price-validation",
-				new IOException("Missing quarter-hour price")));
-	}
-
 }
