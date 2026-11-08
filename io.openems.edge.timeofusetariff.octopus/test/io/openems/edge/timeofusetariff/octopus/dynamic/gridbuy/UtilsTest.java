@@ -4,15 +4,18 @@ import static io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.pars
 import static io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.parseToken;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.AuthenticationFailedException;
+import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.KrakenApiException;
+import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.UpdateResult;
 
 /**
  * Offline tests for the Kraken response parsing. No network access or real
@@ -119,17 +122,38 @@ class UtilsTest {
 	}
 
 	@Test
-	void reportsGraphQlAuthorizationErrorsAsAuthenticationFailure() {
-		assertThrows(AuthenticationFailedException.class, () -> parsePrices(Data.GRAPHQL_AUTHORIZATION_ERROR, NOW));
-		assertThrows(AuthenticationFailedException.class, () -> parseToken(Data.GRAPHQL_AUTHORIZATION_ERROR));
+	void classifiesGraphQlErrors() {
+		assertEquals(UpdateResult.AUTHENTICATION_FAILED,
+				assertThrows(KrakenApiException.class, () -> parsePrices(Data.GRAPHQL_AUTHORIZATION_ERROR, NOW))
+						.getResult());
+		assertEquals(UpdateResult.RATE_LIMITED,
+				assertThrows(KrakenApiException.class, () -> parsePrices(Data.GRAPHQL_RATE_LIMIT_ERROR, NOW))
+						.getResult());
+		assertEquals(UpdateResult.FAILED,
+				assertThrows(KrakenApiException.class, () -> parsePrices(Data.GRAPHQL_SERVER_ERROR, NOW))
+						.getResult());
+		assertTrue(Utils.hasGraphQlAuthorizationError(Data.GRAPHQL_AUTHORIZATION_ERROR));
+		assertFalse(Utils.hasGraphQlAuthorizationError(Data.GRAPHQL_RATE_LIMIT_ERROR));
+		assertFalse(Utils.hasGraphQlAuthorizationError(Data.GRAPHQL_SERVER_ERROR));
 	}
 
 	@Test
 	void parsesToken() throws Exception {
 		assertEquals("test-token", parseToken(Data.token("test-token")));
-		assertThrows(AuthenticationFailedException.class,
-				() -> parseToken("{\"data\":{\"obtainKrakenToken\":{\"token\":\"\"}}}"));
-		assertThrows(OpenemsNamedException.class, () -> parseToken(Data.GRAPHQL_SERVER_ERROR));
+		// GraphQL errors on login mean rejected credentials, except rate limits
+		assertEquals(UpdateResult.AUTHENTICATION_FAILED,
+				assertThrows(KrakenApiException.class, () -> parseToken(Data.GRAPHQL_SERVER_ERROR)).getResult());
+		assertEquals(UpdateResult.RATE_LIMITED,
+				assertThrows(KrakenApiException.class, () -> parseToken(Data.GRAPHQL_RATE_LIMIT_ERROR)).getResult());
+		assertEquals(UpdateResult.FAILED, assertThrows(KrakenApiException.class,
+				() -> parseToken("{\"data\":{\"obtainKrakenToken\":{\"token\":\"\"}}}")).getResult());
+	}
+
+	@Test
+	void rejectsForecastStartingInTheFuture() {
+		// Current quarter 10:00 is missing; 10:15 must not be presented as current
+		assertThrows(OpenemsNamedException.class, () -> parsePrices(Data.forecast(Data.agreement(//
+				Data.slot("2026-10-11T10:15:00Z", "2026-10-11T10:30:00Z", "21.5"))), NOW));
 	}
 
 	@Test
@@ -139,6 +163,6 @@ class UtilsTest {
 			assertTrue(country.getApiUrl().endsWith("/v1/graphql/"));
 		}
 		assertTrue(Country.GERMANY.isSupported());
-		assertEquals(1, java.util.Arrays.stream(Country.values()).filter(Country::isSupported).count());
+		assertEquals(1, Arrays.stream(Country.values()).filter(Country::isSupported).count());
 	}
 }

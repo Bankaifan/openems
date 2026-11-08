@@ -42,7 +42,7 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.meta.Meta;
 import io.openems.edge.timeofusetariff.api.TimeOfUsePrices;
 import io.openems.edge.timeofusetariff.api.TimeOfUseTariff;
-import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.AuthenticationFailedException;
+import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.KrakenApiException;
 import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.OctopusDelayTimeProvider;
 import io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy.Utils.UpdateResult;
 
@@ -134,20 +134,16 @@ public class TariffOctopusDynamicGridBuyImpl extends AbstractOpenemsComponent
 	}
 
 	private CompletableFuture<HttpHeader> fetchToken() {
+		final var bridge = this.httpBridge;
+		if (bridge == null) {
+			return CompletableFuture.failedFuture(new IllegalStateException("Component is deactivated"));
+		}
 		final var endpoint = createTokenEndpoint(this.config.country(), this.config.email(), this.config.password());
-		return this.httpBridge.request(endpoint).handle((response, error) -> {
-			if (error != null) {
-				final var code = getHttpStatusCode(error);
-				if (code == HttpStatus.BAD_REQUEST.code() || code == HttpStatus.UNAUTHORIZED.code()
-						|| code == HttpStatus.FORBIDDEN.code()) {
-					throw new CompletionException(
-							new AuthenticationFailedException("Login rejected with HTTP " + code, error));
-				}
-				throw new CompletionException(error);
-			}
+		// HTTP errors (e.g. 401/403) are passed through and classified by handleError
+		return bridge.request(endpoint).thenApply(response -> {
 			try {
 				return HttpHeader.authorization(parseToken(response.data()));
-			} catch (AuthenticationFailedException | OpenemsNamedException e) {
+			} catch (KrakenApiException | OpenemsNamedException e) {
 				throw new CompletionException(e);
 			}
 		});
@@ -166,7 +162,7 @@ public class TariffOctopusDynamicGridBuyImpl extends AbstractOpenemsComponent
 		final TimeOfUsePrices newPrices;
 		try {
 			newPrices = parsePrices(response.data(), now);
-		} catch (AuthenticationFailedException | OpenemsNamedException e) {
+		} catch (KrakenApiException | OpenemsNamedException e) {
 			return this.handleFailure(classify(e), response.status().code(), e);
 		}
 		this.prices.set(newPrices);

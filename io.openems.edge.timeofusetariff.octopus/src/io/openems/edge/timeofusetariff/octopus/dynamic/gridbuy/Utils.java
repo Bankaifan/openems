@@ -16,9 +16,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.regex.Pattern;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.gson.JsonArray;
@@ -56,7 +57,12 @@ final class Utils {
 	private static final int CONNECT_TIMEOUT_MS = 10_000;
 	private static final int READ_TIMEOUT_MS = 20_000;
 	private static final long QUARTER_SECONDS = 900;
-	private static final Pattern AUTHORIZATION_ERROR_CODE = Pattern.compile("KT-CT-11\\d{2}");
+	/** Kraken error code for "too many requests". */
+	private static final String RATE_LIMIT_ERROR_CODE = "KT-CT-1199";
+	/** Kraken error codes for an expired or invalid token. */
+	private static final Set<String> AUTHORIZATION_ERROR_CODES = Set.of("KT-CT-1124");
+	/** Values of extensions.errorType/errorClass for authentication errors. */
+	private static final Set<String> AUTHORIZATION_ERROR_TYPES = Set.of("AUTHORIZATION", "AUTHENTICATION");
 
 	/** Kraken API prices are in ct/kWh; multiply by 10 to get EUR/MWh. */
 	private static final double CENTS_PER_KWH_TO_CURRENCY_PER_MWH = 10.0;
@@ -83,18 +89,21 @@ final class Utils {
 	}
 
 	/**
-	 * Thrown if the Kraken API rejects the configured credentials.
+	 * A failed request to the Kraken API with the resulting {@link UpdateResult}.
 	 */
-	static final class AuthenticationFailedException extends Exception {
+	static final class KrakenApiException extends Exception {
 
 		private static final long serialVersionUID = 1L;
 
-		AuthenticationFailedException(String message) {
+		private final UpdateResult result;
+
+		KrakenApiException(UpdateResult result, String message) {
 			super(message);
+			this.result = result;
 		}
 
-		AuthenticationFailedException(String message, Throwable cause) {
-			super(message, cause);
+		UpdateResult getResult() {
+			return this.result;
 		}
 	}
 
@@ -152,8 +161,8 @@ final class Utils {
 	 */
 	static UpdateResult classify(Throwable error) {
 		for (var t = error; t != null; t = t.getCause()) {
-			if (t instanceof AuthenticationFailedException) {
-				return UpdateResult.AUTHENTICATION_FAILED;
+			if (t instanceof KrakenApiException e) {
+				return e.getResult();
 			}
 			if (t instanceof HttpError.ResponseError re) {
 				final var code = re.status.code();
@@ -224,47 +233,50 @@ final class Utils {
 	}
 
 	/**
-	 * Whether a GraphQL response contains errors.
+	 * Classifies the GraphQL errors of a response.
 	 *
-	 * @param jsonData the response body
-	 * @return true if the body cannot be parsed or contains errors
+	 * <p>
+	 * "Too many requests" (KT-CT-1199) is a rate limit. Errors with
+	 * {@code extensions.errorType} or {@code errorClass} AUTHORIZATION or
+	 * AUTHENTICATION, or an expired-token code, are authentication errors. Any
+	 * other error is a generic failure.
+	 *
+	 * @param json the response body
+	 * @return the {@link UpdateResult}; empty if there are no errors
 	 */
-	static boolean hasGraphQlErrors(String jsonData) {
-		if (jsonData == null) {
-			return true;
+	static Optional<UpdateResult> classifyGraphQlErrors(JsonObject json) {
+		final var errors = getAsOptionalJsonArray(json, "errors").orElseGet(JsonArray::new);
+		if (errors.isEmpty()) {
+			return Optional.empty();
 		}
-		try {
-			return hasGraphQlErrors(parseToJsonObject(jsonData));
-		} catch (OpenemsNamedException e) {
-			return true;
+		final var extensions = errors.asList().stream() //
+				.map(e -> getAsOptionalJsonObject(e, "extensions").orElseGet(JsonObject::new)) //
+				.toList();
+		if (extensions.stream().anyMatch(x -> RATE_LIMIT_ERROR_CODE.equals(string(x, "errorCode")))) {
+			return Optional.of(UpdateResult.RATE_LIMITED);
 		}
-	}
-
-	private static boolean hasGraphQlErrors(JsonObject json) {
-		return getAsOptionalJsonArray(json, "errors") //
-				.map(errors -> !errors.isEmpty()) //
-				.orElse(false);
+		if (extensions.stream().anyMatch(x -> AUTHORIZATION_ERROR_CODES.contains(string(x, "errorCode")) //
+				|| AUTHORIZATION_ERROR_TYPES.contains(string(x, "errorType")) //
+				|| AUTHORIZATION_ERROR_TYPES.contains(string(x, "errorClass")))) {
+			return Optional.of(UpdateResult.AUTHENTICATION_FAILED);
+		}
+		return Optional.of(UpdateResult.FAILED);
 	}
 
 	/**
-	 * Whether a GraphQL response reports an authorization error. Kraken uses error
-	 * codes of the form "KT-CT-11xx" (four digits) for authentication and
-	 * authorization errors.
+	 * Whether a GraphQL response reports an authentication error, e.g. an expired
+	 * token.
 	 *
 	 * @param jsonData the response body
-	 * @return true if the response contains an authorization error
+	 * @return true if the response contains an authentication error
 	 */
 	static boolean hasGraphQlAuthorizationError(String jsonData) {
 		if (jsonData == null) {
 			return false;
 		}
 		try {
-			return getAsOptionalJsonArray(parseToJsonObject(jsonData), "errors") //
-					.map(errors -> errors.asList().stream() //
-							.map(e -> getAsOptionalJsonObject(e, "extensions") //
-									.flatMap(x -> getAsOptionalString(x, "errorCode")) //
-									.orElse("")) //
-							.anyMatch(code -> AUTHORIZATION_ERROR_CODE.matcher(code).matches())) //
+			return classifyGraphQlErrors(parseToJsonObject(jsonData)) //
+					.map(r -> r == UpdateResult.AUTHENTICATION_FAILED) //
 					.orElse(false);
 		} catch (OpenemsNamedException e) {
 			return false;
@@ -274,27 +286,29 @@ final class Utils {
 	/**
 	 * Parses the token from the obtainKrakenToken mutation response.
 	 *
+	 * <p>
+	 * GraphQL errors of the login are treated as rejected credentials (except
+	 * rate limits), so that wrong credentials are not retried repeatedly.
+	 *
 	 * @param jsonData the response body
 	 * @return the token
-	 * @throws AuthenticationFailedException if the credentials were rejected
-	 * @throws OpenemsNamedException         on parse error or other GraphQL
-	 *                                       errors
+	 * @throws KrakenApiException    if the login failed
+	 * @throws OpenemsNamedException on parse error
 	 */
-	static String parseToken(String jsonData) throws AuthenticationFailedException, OpenemsNamedException {
+	static String parseToken(String jsonData) throws KrakenApiException, OpenemsNamedException {
 		final var json = parseToJsonObject(jsonData);
-		final var token = getAsOptionalJsonObject(json, "data") //
+		final var errorResult = classifyGraphQlErrors(json);
+		if (errorResult.isPresent()) {
+			final var result = errorResult.get() == UpdateResult.RATE_LIMITED //
+					? UpdateResult.RATE_LIMITED //
+					: UpdateResult.AUTHENTICATION_FAILED;
+			throw new KrakenApiException(result, "Login failed with GraphQL errors");
+		}
+		return getAsOptionalJsonObject(json, "data") //
 				.flatMap(data -> getAsOptionalJsonObject(data, "obtainKrakenToken")) //
 				.flatMap(result -> getAsOptionalString(result, "token")) //
-				.filter(t -> !t.isBlank());
-		if (token.isEmpty()) {
-			if (hasGraphQlErrors(json) && !hasGraphQlAuthorizationError(jsonData)) {
-				// e.g. temporary server error; retry later
-				throw new OpenemsException("GraphQL errors in obtainKrakenToken response");
-			}
-			// Kraken reports invalid credentials as GraphQL authorization errors
-			throw new AuthenticationFailedException("No token in obtainKrakenToken response");
-		}
-		return token.get();
+				.filter(t -> !t.isBlank()) //
+				.orElseThrow(() -> new KrakenApiException(UpdateResult.FAILED, "No token in login response"));
 	}
 
 	/**
@@ -304,8 +318,9 @@ final class Utils {
 	 * The account may contain several agreements, e.g. around a contract change
 	 * or for different supply points. Empty forecasts are skipped. The agreement
 	 * that is active at {@code now} is preferred (if several are active, the most
-	 * recently started one); other agreements only fill the time after it. Prices before {@code now} are dropped and the result is
-	 * cut at the first gap, so the returned forecast is always continuous.
+	 * recently started one); other agreements only fill the time after it.
+	 * Prices before {@code now} are dropped. The result must start at the current
+	 * quarter and is cut at the first gap, so it is always continuous.
 	 * Individual invalid slots and quarters with conflicting prices within one
 	 * agreement are skipped instead of rejecting the whole forecast.
 	 *
@@ -315,18 +330,15 @@ final class Utils {
 	 * @param jsonData the response body
 	 * @param now      the current time
 	 * @return the {@link TimeOfUsePrices}
-	 * @throws AuthenticationFailedException if access to the account was denied
-	 * @throws OpenemsNamedException         if the response is invalid or
-	 *                                       contains no current or future prices
+	 * @throws KrakenApiException    on GraphQL errors
+	 * @throws OpenemsNamedException if the response is invalid or contains no
+	 *                               price for the current quarter
 	 */
-	static TimeOfUsePrices parsePrices(String jsonData, Instant now)
-			throws AuthenticationFailedException, OpenemsNamedException {
-		if (hasGraphQlAuthorizationError(jsonData)) {
-			throw new AuthenticationFailedException("Access to the account was denied");
-		}
+	static TimeOfUsePrices parsePrices(String jsonData, Instant now) throws KrakenApiException, OpenemsNamedException {
 		final var json = parseToJsonObject(jsonData);
-		if (hasGraphQlErrors(json)) {
-			throw new OpenemsException("GraphQL errors in Octopus price response");
+		final var errorResult = classifyGraphQlErrors(json);
+		if (errorResult.isPresent()) {
+			throw new KrakenApiException(errorResult.get(), "GraphQL errors in price response");
 		}
 		final var account = getAsJsonObject(getAsJsonObject(json, "data"), "account");
 		final var currentQuarter = roundDownToQuarter(now);
@@ -345,9 +357,10 @@ final class Utils {
 
 		final var merged = mergeAgreements(agreements, currentQuarter);
 		final var result = ImmutableSortedMap.<Instant, Double>naturalOrder();
-		Instant expected = null;
+		// A forecast that starts in the future must not be presented as current price
+		var expected = currentQuarter;
 		for (var entry : merged.tailMap(currentQuarter, true).entrySet()) {
-			if (expected != null && !entry.getKey().equals(expected)) {
+			if (!entry.getKey().equals(expected)) {
 				break; // gap: keep the continuous part only
 			}
 			result.put(entry.getKey(), entry.getValue());
@@ -356,7 +369,7 @@ final class Utils {
 
 		final var prices = TimeOfUsePrices.from(result.build());
 		if (prices.isEmpty()) {
-			throw new OpenemsException("No current or future prices in Octopus price response");
+			throw new OpenemsException("No price for the current quarter in Octopus price response");
 		}
 		return prices;
 	}
@@ -432,6 +445,10 @@ final class Utils {
 		}
 		conflicts.forEach(result::remove);
 		return result;
+	}
+
+	private static String string(JsonObject json, String member) {
+		return getAsOptionalString(json, member).orElse("");
 	}
 
 	private static JsonArray array(JsonElement element, String member) {

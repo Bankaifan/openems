@@ -13,6 +13,11 @@ final class Data {
 			  "extensions":{"errorType":"AUTHORIZATION","errorCode":"KT-CT-1124"}}],
 			 "data":null}""";
 
+	static final String GRAPHQL_RATE_LIMIT_ERROR = """
+			{"errors":[{"message":"Too many requests.",
+			  "extensions":{"errorType":"APPLICATION","errorCode":"KT-CT-1199"}}],
+			 "data":null}""";
+
 	static final String GRAPHQL_SERVER_ERROR = """
 			{"errors":[{"message":"Something went wrong.",
 			  "extensions":{"errorType":"APPLICATION","errorCode":"KT-CT-4321"}}],

@@ -2,10 +2,10 @@ package io.openems.edge.timeofusetariff.octopus.dynamic.gridbuy;
 
 import static io.openems.edge.common.currency.Currency.EUR;
 import static java.time.temporal.ChronoUnit.MINUTES;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import io.openems.common.bridge.http.api.BridgeHttp.Endpoint;
 import io.openems.common.bridge.http.api.HttpError;
@@ -33,7 +33,7 @@ import io.openems.edge.common.test.DummyMeta;
  * Offline component tests. All HTTP requests are answered by a
  * {@link DummyEndpointFetcher}; no network access or real account data is used.
  */
-public class TariffOctopusDynamicGridBuyImplTest {
+class TariffOctopusDynamicGridBuyImplTest {
 
 	private static final String VALID_FORECAST = Data.forecast(Data.agreement(//
 			Data.slot("2026-10-11T10:00:00Z", "2026-10-11T10:15:00Z", "21.5"), //
@@ -113,7 +113,7 @@ public class TariffOctopusDynamicGridBuyImplTest {
 				.setId("timeOfUseTariff0") //
 				.setEmail("octopus@example.test") //
 				.setPassword("test-password") //
-				.setAccountNumber("A-TEST0000");
+				.setAccountNumber("A-1234ABCD");
 	}
 
 	private static Object channel(TariffOctopusDynamicGridBuyImpl sut, TariffOctopusDynamicGridBuy.ChannelId id) {
@@ -121,9 +121,9 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void fetchesTokenAndPricesAndReusesToken() throws Exception {
+	void fetchesTokenAndPricesAndReusesToken() throws Exception {
 		var kraken = new FakeKraken();
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(List.of("token", "prices"), kraken.requests);
@@ -142,10 +142,10 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void reauthenticatesOnceAfterUnauthorizedPriceRequest() throws Exception {
+	void reauthenticatesOnceAfterUnauthorizedPriceRequest() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(List.of("token", "prices", "token", "prices"), kraken.requests);
@@ -155,10 +155,10 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void reauthenticatesOnceAfterExpiredTokenGraphQlError() throws Exception {
+	void reauthenticatesOnceAfterExpiredTokenGraphQlError() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.priceResponses.add(Data.GRAPHQL_AUTHORIZATION_ERROR);
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(List.of("token", "prices", "token", "prices"), kraken.requests);
@@ -166,11 +166,11 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void stopsAfterUnauthorized() throws Exception {
+	void stopsAfterUnauthorized() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
 		kraken.priceResponses.add(HttpStatus.UNAUTHORIZED);
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(4, kraken.requests.size());
@@ -183,10 +183,10 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void stopsAfterRejectedLogin() throws Exception {
+	void stopsAfterRejectedLogin() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.tokenResponses.add(Data.GRAPHQL_AUTHORIZATION_ERROR);
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(List.of("token"), kraken.requests);
@@ -197,10 +197,10 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void retriesLateAfterRateLimit() throws Exception {
+	void retriesLateAfterRateLimit() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.priceResponses.add(HttpStatus.TOO_MANY_REQUESTS);
-		var sut = kraken.activate();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 
 		assertEquals(2, kraken.requests.size());
@@ -210,15 +210,70 @@ public class TariffOctopusDynamicGridBuyImplTest {
 
 		kraken.leapAndRun(59);
 		assertEquals(2, kraken.requests.size());
+
+		// Recovery at 11:06 with a forecast covering the current quarter
+		kraken.priceResponses.add(Data.forecast(Data.agreement(//
+				Data.slot("2026-10-11T11:00:00Z", "2026-10-11T11:15:00Z", "19"), //
+				Data.slot("2026-10-11T11:15:00Z", "2026-10-11T11:30:00Z", "17"))));
 		kraken.leapAndRun(2);
 		assertEquals(3, kraken.requests.size());
 		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_RATE_LIMITED));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+		assertArrayEquals(new Double[] { 190.0, 170.0 }, sut.getPrices().asArray());
 	}
 
 	@Test
-	public void retriesShortlyAfterOtherErrorsAndKeepsPrices() throws Exception {
+	void retriesLateAfterGraphQlRateLimit() throws Exception {
 		var kraken = new FakeKraken();
-		var sut = kraken.activate();
+		kraken.priceResponses.add(Data.GRAPHQL_RATE_LIMIT_ERROR);
+		final var sut = kraken.activate();
+		kraken.runDueRequests();
+
+		// KT-CT-1199 is no session expiry: no new login, no stop
+		assertEquals(List.of("token", "prices"), kraken.requests);
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_RATE_LIMITED));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
+
+		kraken.leapAndRun(59);
+		assertEquals(2, kraken.requests.size());
+		kraken.leapAndRun(2);
+		assertEquals(3, kraken.requests.size());
+	}
+
+	@Test
+	void retriesShortlyAfterBadRequestOnLogin() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.tokenResponses.add(HttpStatus.BAD_REQUEST);
+		final var sut = kraken.activate();
+		kraken.runDueRequests();
+
+		assertEquals(List.of("token"), kraken.requests);
+		assertEquals(400, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.HTTP_STATUS_CODE));
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_UPDATE_FAILED));
+		assertEquals(false, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
+
+		kraken.leapAndRun(6);
+		assertEquals(List.of("token", "token", "prices"), kraken.requests);
+		assertFalse(sut.getPrices().isEmpty());
+	}
+
+	@Test
+	void stopsAfterUnauthorizedLogin() throws Exception {
+		var kraken = new FakeKraken();
+		kraken.tokenResponses.add(HttpStatus.UNAUTHORIZED);
+		final var sut = kraken.activate();
+		kraken.runDueRequests();
+
+		assertEquals(List.of("token"), kraken.requests);
+		assertEquals(true, channel(sut, TariffOctopusDynamicGridBuy.ChannelId.STATUS_AUTHENTICATION_FAILED));
+		kraken.leapAndRun(24 * 60);
+		assertEquals(1, kraken.requests.size());
+	}
+
+	@Test
+	void retriesShortlyAfterOtherErrorsAndKeepsPrices() throws Exception {
+		var kraken = new FakeKraken();
+		final var sut = kraken.activate();
 		kraken.runDueRequests();
 		assertFalse(sut.getPrices().isEmpty());
 
@@ -259,9 +314,9 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void sendsNoRequestsForUnsupportedCountry() throws Exception {
+	void sendsNoRequestsForUnsupportedCountry() throws Exception {
 		var kraken = new FakeKraken();
-		var sut = kraken.activate(validConfig().setCountry(Country.UNITED_KINGDOM));
+		final var sut = kraken.activate(validConfig().setCountry(Country.UNITED_KINGDOM));
 		kraken.leapAndRun(60);
 
 		assertTrue(kraken.requests.isEmpty());
@@ -270,9 +325,9 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void sendsNoRequestsWithIncompleteConfiguration() throws Exception {
+	void sendsNoRequestsWithIncompleteConfiguration() throws Exception {
 		var kraken = new FakeKraken();
-		var sut = kraken.activate(validConfig().setPassword(""));
+		final var sut = kraken.activate(validConfig().setPassword(""));
 		kraken.leapAndRun(60);
 
 		assertTrue(kraken.requests.isEmpty());
@@ -281,7 +336,7 @@ public class TariffOctopusDynamicGridBuyImplTest {
 	}
 
 	@Test
-	public void disabledComponentSendsNoRequests() throws Exception {
+	void disabledComponentSendsNoRequests() throws Exception {
 		var kraken = new FakeKraken();
 		kraken.activate(validConfig().setEnabled(false));
 		kraken.leapAndRun(60);
